@@ -53,7 +53,7 @@ namespace uniconv::core
 
     std::optional<RegistryPluginEntry> RegistryClient::fetch_plugin(const std::string &name)
     {
-        auto url = registry_url_ + "/plugins/" + name + "/plugin.json";
+        auto url = registry_url_ + "/plugins/" + name + "/manifest.json";
         auto response = utils::http_get(url);
 
         if (!response.success)

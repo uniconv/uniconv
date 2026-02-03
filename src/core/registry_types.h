@@ -91,7 +91,7 @@ namespace uniconv::core
         }
     };
 
-    // Full registry plugin entry (from plugins/<name>/plugin.json in registry)
+    // Full registry plugin entry (from plugins/<name>/manifest.json in registry)
     struct RegistryPluginEntry
     {
         std::string name;
