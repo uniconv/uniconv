@@ -17,7 +17,7 @@ public:
     PluginInfo info() const override;
     bool supports_target(const std::string& target) const override;
     bool supports_input(const std::string& format) const override;
-    ETLResult execute(const ETLRequest& request) override;
+    Result execute(const Request& request) override;
 
     // Get the manifest
     const PluginManifest& manifest() const { return manifest_; }
@@ -33,7 +33,7 @@ private:
     std::filesystem::path resolve_executable() const;
 
     // Build command line arguments for the plugin
-    std::vector<std::string> build_arguments(const ETLRequest& request) const;
+    std::vector<std::string> build_arguments(const Request& request) const;
 
     // Execute the plugin and capture output
     struct ExecuteResult {
@@ -46,7 +46,7 @@ private:
                               const std::vector<std::string>& args) const;
 
     // Parse JSON result from plugin stdout
-    ETLResult parse_result(const ETLRequest& request, const ExecuteResult& exec_result) const;
+    Result parse_result(const Request& request, const ExecuteResult& exec_result) const;
 };
 
 // CLI Plugin Loader - creates CLIPlugin instances from manifests

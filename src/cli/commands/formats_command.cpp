@@ -1,80 +1,97 @@
 #include "formats_command.h"
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <set>
 
-namespace uniconv::cli::commands {
+namespace uniconv::cli::commands
+{
 
-FormatsCommand::FormatsCommand(std::shared_ptr<core::PluginManager> plugin_manager)
-    : plugin_manager_(std::move(plugin_manager)) {
-}
-
-int FormatsCommand::execute(const ParsedArgs& args) {
-    if (args.core_options.json_output) {
-        print_formats_json();
-    } else {
-        print_formats_text();
+    FormatsCommand::FormatsCommand(std::shared_ptr<core::PluginManager> plugin_manager)
+        : plugin_manager_(std::move(plugin_manager))
+    {
     }
-    return 0;
-}
 
-void FormatsCommand::print_formats_text() {
-    std::cout << "Transform (-t):\n";
-    std::cout << "  Input formats: ";
-    auto inputs = plugin_manager_->get_supported_inputs(core::ETLType::Transform);
-    for (size_t i = 0; i < inputs.size(); ++i) {
-        if (i > 0) std::cout << ", ";
-        std::cout << inputs[i];
+    int FormatsCommand::execute(const ParsedArgs &args)
+    {
+        if (args.core_options.json_output)
+        {
+            print_formats_json();
+        }
+        else
+        {
+            print_formats_text();
+        }
+        return 0;
     }
-    std::cout << "\n  Output formats: ";
-    auto targets = plugin_manager_->get_supported_targets(core::ETLType::Transform);
-    for (size_t i = 0; i < targets.size(); ++i) {
-        if (i > 0) std::cout << ", ";
-        std::cout << targets[i];
-    }
-    std::cout << "\n\n";
 
-    std::cout << "Extract (-e):\n";
-    inputs = plugin_manager_->get_supported_inputs(core::ETLType::Extract);
-    targets = plugin_manager_->get_supported_targets(core::ETLType::Extract);
-    if (inputs.empty() && targets.empty()) {
-        std::cout << "  (no extract plugins installed)\n\n";
-    } else {
-        std::cout << "  Targets: ";
-        for (size_t i = 0; i < targets.size(); ++i) {
-            if (i > 0) std::cout << ", ";
-            std::cout << targets[i];
+    void FormatsCommand::print_formats_text()
+    {
+        auto plugins = plugin_manager_->list_plugins();
+
+        std::set<std::string> all_inputs;
+        std::set<std::string> all_outputs;
+
+        for (const auto &plugin : plugins)
+        {
+            for (const auto &fmt : plugin.input_formats)
+            {
+                all_inputs.insert(fmt);
+            }
+            for (const auto &target : plugin.targets)
+            {
+                all_outputs.insert(target);
+            }
+        }
+
+        std::cout << "Supported formats:\n\n";
+
+        std::cout << "  Input formats: ";
+        bool first = true;
+        for (const auto &fmt : all_inputs)
+        {
+            if (!first)
+                std::cout << ", ";
+            std::cout << fmt;
+            first = false;
         }
         std::cout << "\n\n";
-    }
 
-    std::cout << "Load (-l):\n";
-    inputs = plugin_manager_->get_supported_inputs(core::ETLType::Load);
-    targets = plugin_manager_->get_supported_targets(core::ETLType::Load);
-    if (inputs.empty() && targets.empty()) {
-        std::cout << "  (no load plugins installed)\n";
-    } else {
-        std::cout << "  Destinations: ";
-        for (size_t i = 0; i < targets.size(); ++i) {
-            if (i > 0) std::cout << ", ";
-            std::cout << targets[i];
+        std::cout << "  Output formats: ";
+        first = true;
+        for (const auto &fmt : all_outputs)
+        {
+            if (!first)
+                std::cout << ", ";
+            std::cout << fmt;
+            first = false;
         }
         std::cout << "\n";
     }
-}
 
-void FormatsCommand::print_formats_json() {
-    nlohmann::json j;
+    void FormatsCommand::print_formats_json()
+    {
+        auto plugins = plugin_manager_->list_plugins();
 
-    j["transform"]["inputs"] = plugin_manager_->get_supported_inputs(core::ETLType::Transform);
-    j["transform"]["outputs"] = plugin_manager_->get_supported_targets(core::ETLType::Transform);
+        std::set<std::string> all_inputs;
+        std::set<std::string> all_outputs;
 
-    j["extract"]["inputs"] = plugin_manager_->get_supported_inputs(core::ETLType::Extract);
-    j["extract"]["targets"] = plugin_manager_->get_supported_targets(core::ETLType::Extract);
+        for (const auto &plugin : plugins)
+        {
+            for (const auto &fmt : plugin.input_formats)
+            {
+                all_inputs.insert(fmt);
+            }
+            for (const auto &target : plugin.targets)
+            {
+                all_outputs.insert(target);
+            }
+        }
 
-    j["load"]["inputs"] = plugin_manager_->get_supported_inputs(core::ETLType::Load);
-    j["load"]["destinations"] = plugin_manager_->get_supported_targets(core::ETLType::Load);
+        nlohmann::json j;
+        j["inputs"] = std::vector<std::string>(all_inputs.begin(), all_inputs.end());
+        j["outputs"] = std::vector<std::string>(all_outputs.begin(), all_outputs.end());
 
-    std::cout << j.dump(2) << std::endl;
-}
+        std::cout << j.dump(2) << std::endl;
+    }
 
 } // namespace uniconv::cli::commands

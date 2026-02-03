@@ -22,7 +22,7 @@ public:
     virtual bool supports_input(const std::string& format) const = 0;
 
     // Execute the ETL operation
-    virtual core::ETLResult execute(const core::ETLRequest& request) = 0;
+    virtual core::Result execute(const core::Request& request) = 0;
 };
 
 using PluginPtr = std::unique_ptr<IPlugin>;

@@ -3,11 +3,12 @@
   "group": "video-to-gif",
   "version": "1.0.0",
   "description": "Convert video files (MP4, MOV, AVI, WebM) to animated GIF using ffmpeg",
-  "etl": "transform",
   "interface": "native",
   "library": "libvideo_to_gif",
   "targets": ["gif"],
   "input_formats": ["mp4", "mov", "avi", "webm", "mkv", "m4v"],
+  "input_types": ["video", "file"],
+  "output_types": ["image"],
   "options": [
     {
       "name": "--fps",

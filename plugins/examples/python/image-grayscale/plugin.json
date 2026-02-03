@@ -3,11 +3,12 @@
   "group": "image-grayscale",
   "version": "1.0.0",
   "description": "Convert images to grayscale using Python/Pillow",
-  "etl": "transform",
   "interface": "cli",
   "executable": "grayscale.py",
   "targets": ["grayscale", "gray", "bw"],
   "input_formats": ["jpg", "jpeg", "png", "webp", "bmp", "gif"],
+  "input_types": ["image", "file"],
+  "output_types": ["image"],
   "options": [
     {
       "name": "--quality",

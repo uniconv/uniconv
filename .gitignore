@@ -2,6 +2,9 @@
 build/
 cmake-build-*/
 out/
+.cache
+.claude
+temp
 
 # IDE
 .idea/

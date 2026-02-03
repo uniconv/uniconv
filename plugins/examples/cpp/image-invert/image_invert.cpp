@@ -23,15 +23,19 @@
 static const char *targets[] = {"invert", "negative", nullptr};
 static const char *input_formats[] = {"jpg", "jpeg", "png", "bmp", nullptr};
 
+// Data type information
+static UniconvDataType input_types[] = {UNICONV_DATA_IMAGE, UNICONV_DATA_FILE, (UniconvDataType)0};
+static UniconvDataType output_types[] = {UNICONV_DATA_IMAGE, (UniconvDataType)0};
+
 static UniconvPluginInfo plugin_info = {
     .name = "image-invert",
     .group = "image-invert",
-    .etl = UNICONV_ETL_TRANSFORM,
     .version = "1.0.0",
     .description = "Invert image colors",
     .targets = targets,
     .input_formats = input_formats,
-    .api_version = UNICONV_API_VERSION};
+    .input_types = input_types,
+    .output_types = output_types};
 
 extern "C"
 {
@@ -65,7 +69,7 @@ extern "C"
 
         // Get input file extension (preserve format)
         std::string source_path = request->source;
-        std::string input_ext = ".jpg";  // Default fallback
+        std::string input_ext = ".jpg"; // Default fallback
         size_t src_dot = source_path.rfind('.');
         if (src_dot != std::string::npos)
         {

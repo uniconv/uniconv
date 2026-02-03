@@ -12,10 +12,10 @@ namespace uniconv::utils {
 void output_json(std::ostream& os, const nlohmann::json& j, bool pretty = false);
 
 // Output ETL result
-void output_result(std::ostream& os, const core::ETLResult& result, bool json_mode, bool verbose = false);
+void output_result(std::ostream& os, const core::Result& result, bool json_mode, bool verbose = false);
 
 // Output multiple ETL results
-void output_results(std::ostream& os, const std::vector<core::ETLResult>& results, bool json_mode, bool verbose = false);
+void output_results(std::ostream& os, const std::vector<core::Result>& results, bool json_mode, bool verbose = false);
 
 // Output file info
 void output_file_info(std::ostream& os, const core::FileInfo& info, bool json_mode);

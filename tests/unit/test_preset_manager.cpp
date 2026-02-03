@@ -5,16 +5,19 @@
 using namespace uniconv::core;
 namespace fs = std::filesystem;
 
-class PresetManagerTest : public ::testing::Test {
+class PresetManagerTest : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         // Create a temp directory for tests
         test_dir_ = fs::temp_directory_path() / "uniconv_test";
         fs::create_directories(test_dir_);
         manager_ = std::make_unique<PresetManager>(test_dir_);
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         // Clean up test directory
         fs::remove_all(test_dir_);
     }
@@ -23,11 +26,11 @@ protected:
     std::unique_ptr<PresetManager> manager_;
 };
 
-TEST_F(PresetManagerTest, CreateAndLoadPreset) {
+TEST_F(PresetManagerTest, CreateAndLoadPreset)
+{
     Preset preset;
     preset.name = "test-preset";
     preset.description = "A test preset";
-    preset.etl = ETLType::Transform;
     preset.target = "jpg";
     preset.plugin_options = {"--quality", "85"};
 
@@ -37,27 +40,26 @@ TEST_F(PresetManagerTest, CreateAndLoadPreset) {
     ASSERT_TRUE(loaded.has_value());
     EXPECT_EQ(loaded->name, "test-preset");
     EXPECT_EQ(loaded->description, "A test preset");
-    EXPECT_EQ(loaded->etl, ETLType::Transform);
     EXPECT_EQ(loaded->target, "jpg");
     EXPECT_EQ(loaded->plugin_options.size(), 2);
 }
 
-TEST_F(PresetManagerTest, PresetExists) {
+TEST_F(PresetManagerTest, PresetExists)
+{
     EXPECT_FALSE(manager_->exists("nonexistent"));
 
     Preset preset;
     preset.name = "exists-test";
-    preset.etl = ETLType::Transform;
     preset.target = "png";
 
     manager_->create(preset);
     EXPECT_TRUE(manager_->exists("exists-test"));
 }
 
-TEST_F(PresetManagerTest, RemovePreset) {
+TEST_F(PresetManagerTest, RemovePreset)
+{
     Preset preset;
     preset.name = "to-remove";
-    preset.etl = ETLType::Transform;
     preset.target = "jpg";
 
     manager_->create(preset);
@@ -70,7 +72,8 @@ TEST_F(PresetManagerTest, RemovePreset) {
     EXPECT_FALSE(manager_->remove("nonexistent"));
 }
 
-TEST_F(PresetManagerTest, ListPresets) {
+TEST_F(PresetManagerTest, ListPresets)
+{
     // Initially empty
     auto presets = manager_->list();
     EXPECT_TRUE(presets.empty());
@@ -78,13 +81,11 @@ TEST_F(PresetManagerTest, ListPresets) {
     // Add some presets
     Preset p1;
     p1.name = "alpha";
-    p1.etl = ETLType::Transform;
     p1.target = "jpg";
     manager_->create(p1);
 
     Preset p2;
     p2.name = "beta";
-    p2.etl = ETLType::Extract;
     p2.target = "audio";
     manager_->create(p2);
 
@@ -96,16 +97,15 @@ TEST_F(PresetManagerTest, ListPresets) {
     EXPECT_EQ(presets[1].name, "beta");
 }
 
-TEST_F(PresetManagerTest, ListNames) {
+TEST_F(PresetManagerTest, ListNames)
+{
     Preset p1;
     p1.name = "first";
-    p1.etl = ETLType::Transform;
     p1.target = "jpg";
     manager_->create(p1);
 
     Preset p2;
     p2.name = "second";
-    p2.etl = ETLType::Transform;
     p2.target = "png";
     manager_->create(p2);
 
@@ -115,20 +115,20 @@ TEST_F(PresetManagerTest, ListNames) {
     EXPECT_EQ(names[1], "second");
 }
 
-TEST_F(PresetManagerTest, InvalidPresetName) {
+TEST_F(PresetManagerTest, InvalidPresetName)
+{
     Preset preset;
-    preset.name = "invalid/name";  // Contains slash
-    preset.etl = ETLType::Transform;
+    preset.name = "invalid/name"; // Contains slash
     preset.target = "jpg";
 
     EXPECT_THROW(manager_->create(preset), std::invalid_argument);
 }
 
-TEST_F(PresetManagerTest, ExportImportPreset) {
+TEST_F(PresetManagerTest, ExportImportPreset)
+{
     Preset preset;
     preset.name = "export-test";
     preset.description = "Export test preset";
-    preset.etl = ETLType::Transform;
     preset.target = "webp";
     preset.plugin_options = {"--quality", "90"};
 

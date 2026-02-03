@@ -1,17 +1,17 @@
-#include "etl_command.h"
+#include "pipeline_command.h"
 #include "utils/json_output.h"
 #include <iostream>
 #include <iomanip>
 
 namespace uniconv::cli::commands {
 
-ETLCommand::ETLCommand(
+PipelineCommand::PipelineCommand(
     std::shared_ptr<core::Engine> engine,
     std::shared_ptr<core::PresetManager> preset_manager
 ) : engine_(std::move(engine)), preset_manager_(std::move(preset_manager)) {
 }
 
-int ETLCommand::execute(const ParsedArgs& args) {
+int PipelineCommand::execute(const ParsedArgs& args) {
     if (args.sources.empty()) {
         std::cerr << "Error: No source files specified\n";
         return 1;
@@ -41,12 +41,11 @@ int ETLCommand::execute(const ParsedArgs& args) {
     }
 }
 
-std::vector<core::ETLRequest> ETLCommand::build_requests(const ParsedArgs& args) {
-    core::ETLType etl = core::ETLType::Transform;
+std::vector<core::Request> PipelineCommand::build_requests(const ParsedArgs& args) {
     std::string target;
     std::optional<std::string> plugin;
     core::CoreOptions core_opts = args.core_options;
-    std::vector<std::string> plugin_opts = args.plugin_options;
+    std::vector<std::string> plugin_opts;
 
     // If using a preset, load it first
     if (args.preset) {
@@ -56,7 +55,6 @@ std::vector<core::ETLRequest> ETLCommand::build_requests(const ParsedArgs& args)
             return {};
         }
 
-        etl = preset->etl;
         target = preset->target;
         plugin = preset->plugin;
 
@@ -69,13 +67,6 @@ std::vector<core::ETLRequest> ETLCommand::build_requests(const ParsedArgs& args)
         if (plugin_opts.empty()) {
             plugin_opts = preset->plugin_options;
         }
-    } else if (args.etl) {
-        etl = *args.etl;
-        target = args.target;
-        plugin = args.plugin;
-    } else {
-        std::cerr << "Error: No ETL operation specified (-t, -e, -l) or preset (-p)\n";
-        return {};
     }
 
     // Convert source strings to paths
@@ -84,10 +75,10 @@ std::vector<core::ETLRequest> ETLCommand::build_requests(const ParsedArgs& args)
         sources.push_back(s);
     }
 
-    return engine_->create_requests(etl, sources, target, plugin, core_opts, plugin_opts);
+    return engine_->create_requests(sources, target, plugin, core_opts, plugin_opts);
 }
 
-void ETLCommand::print_result(const core::ETLResult& result, const ParsedArgs& args) {
+void PipelineCommand::print_result(const core::Result& result, const ParsedArgs& args) {
     if (args.core_options.json_output) {
         std::cout << result.to_json().dump(2) << std::endl;
         return;
@@ -128,7 +119,7 @@ void ETLCommand::print_result(const core::ETLResult& result, const ParsedArgs& a
     }
 }
 
-void ETLCommand::print_batch_result(const core::BatchResult& result, const ParsedArgs& args) {
+void PipelineCommand::print_batch_result(const core::BatchResult& result, const ParsedArgs& args) {
     if (args.core_options.json_output) {
         std::cout << result.to_json().dump(2) << std::endl;
         return;
@@ -146,7 +137,7 @@ void ETLCommand::print_batch_result(const core::BatchResult& result, const Parse
     }
 }
 
-void ETLCommand::show_progress(const std::string& file, size_t current, size_t total) {
+void PipelineCommand::show_progress(const std::string& file, size_t current, size_t total) {
     if (file.empty()) {
         std::cout << "\r" << std::string(60, ' ') << "\r" << std::flush;
         return;

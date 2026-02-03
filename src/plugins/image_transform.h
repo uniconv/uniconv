@@ -11,7 +11,6 @@ namespace uniconv::plugins
     {
     public:
         static constexpr std::string_view kGroupName = "image-core";
-        static constexpr core::ETLType kETLType = core::ETLType::Transform;
 
         // Supported formats
         static constexpr std::array<std::string_view, 9> kInputFormats = {
@@ -27,18 +26,19 @@ namespace uniconv::plugins
         core::PluginInfo info() const override;
         bool supports_target(const std::string &target) const override;
         bool supports_input(const std::string &format) const override;
-        core::ETLResult execute(const core::ETLRequest &request) override;
+        core::Result execute(const core::Request &request) override;
 
     private:
         // Parsed plugin options
-        struct ImageOptions {
+        struct ImageOptions
+        {
             std::optional<int> quality;
             std::optional<int> width;
             std::optional<int> height;
         };
 
         // Internal conversion methods
-        core::ETLResult convert_image(
+        core::Result convert_image(
             const std::filesystem::path &input,
             const std::filesystem::path &output,
             const std::string &format,

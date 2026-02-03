@@ -7,9 +7,9 @@
 
 namespace uniconv::cli::commands {
 
-class ETLCommand {
+class PipelineCommand {
 public:
-    ETLCommand(
+    PipelineCommand(
         std::shared_ptr<core::Engine> engine,
         std::shared_ptr<core::PresetManager> preset_manager
     );
@@ -21,10 +21,10 @@ private:
     std::shared_ptr<core::PresetManager> preset_manager_;
 
     // Build requests from args (possibly using preset)
-    std::vector<core::ETLRequest> build_requests(const ParsedArgs& args);
+    std::vector<core::Request> build_requests(const ParsedArgs& args);
 
     // Print result
-    void print_result(const core::ETLResult& result, const ParsedArgs& args);
+    void print_result(const core::Result& result, const ParsedArgs& args);
     void print_batch_result(const core::BatchResult& result, const ParsedArgs& args);
 
     // Progress callback

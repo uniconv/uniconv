@@ -16,7 +16,7 @@ public:
     PluginInfo info() const override;
     bool supports_target(const std::string& target) const override;
     bool supports_input(const std::string& format) const override;
-    ETLResult execute(const ETLRequest& request) override;
+    Result execute(const Request& request) override;
 
     // Get the manifest
     const PluginManifest& manifest() const { return manifest_; }
