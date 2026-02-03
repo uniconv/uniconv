@@ -57,12 +57,22 @@ def main():
         print(json.dumps(result))
         return 1
 
+    # Get input file extension (preserve format)
+    _, input_ext = os.path.splitext(args.input)
+    if not input_ext:
+        input_ext = '.jpg'  # Default fallback
+
+    # Use target name as suffix to avoid conflicts
+    target_suffix = f"_{args.target}"
+
     # Determine output path
     if args.output:
-        output_path = args.output
+        # Add suffix and preserve input extension
+        base, _ = os.path.splitext(args.output)
+        output_path = f"{base}{target_suffix}{input_ext}"
     else:
         base, _ = os.path.splitext(args.input)
-        output_path = f"{base}_grayscale.{args.target}"
+        output_path = f"{base}{target_suffix}{input_ext}"
 
     # Check if output exists
     if os.path.exists(output_path) and not args.force:

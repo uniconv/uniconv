@@ -139,12 +139,26 @@ PipelineExecutor::StageExecutionResult PipelineExecutor::execute_stage(
             output_path = output_it->second;
         } else if (is_last_stage && core_options.output.has_value()) {
             // Last stage with CLI -o option specified
-            // If -o has no extension, append target as extension
-            // If -o has extension, use as-is (for multiple outputs, they overwrite same file)
             const auto& out_path = *core_options.output;
-            if (out_path.has_extension()) {
+
+            // Check if output is a directory (ends with / or is existing directory)
+            bool is_directory = false;
+            std::string path_str = out_path.string();
+            if (!path_str.empty() && (path_str.back() == '/' || path_str.back() == '\\')) {
+                is_directory = true;
+            } else if (std::filesystem::is_directory(out_path)) {
+                is_directory = true;
+            }
+
+            if (is_directory) {
+                // Directory specified: use input filename + target extension
+                output_path = out_path / input.stem();
+                output_path += "." + element.target;
+            } else if (out_path.has_extension()) {
+                // Has extension: use as-is
                 output_path = out_path;
             } else {
+                // No extension: append target as extension
                 output_path = out_path;
                 output_path += "." + element.target;
             }
@@ -174,13 +188,16 @@ PipelineExecutor::StageExecutionResult PipelineExecutor::execute_stage(
         // Execute through engine
         auto etl_result = engine_->execute(request);
 
+        // Use the actual output path from plugin result if available
+        std::filesystem::path actual_output = etl_result.output.value_or(output_path);
+
         // Convert to StageResult
         StageResult stage_result;
         stage_result.stage_index = stage_index;
         stage_result.target = element.target;
         stage_result.plugin_used = etl_result.plugin_used;
         stage_result.input = input;
-        stage_result.output = output_path;
+        stage_result.output = actual_output;
         stage_result.status = etl_result.status;
         stage_result.error = etl_result.error;
         // Note: duration_ms would need to be tracked separately
@@ -193,7 +210,7 @@ PipelineExecutor::StageExecutionResult PipelineExecutor::execute_stage(
             return result;
         }
 
-        result.outputs.push_back(output_path);
+        result.outputs.push_back(actual_output);
     }
 
     return result;

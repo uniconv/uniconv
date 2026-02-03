@@ -23,6 +23,7 @@ target_include_directories(image_invert PRIVATE
 
 if(VIPS_FOUND)
     target_include_directories(image_invert PRIVATE ${VIPS_INCLUDE_DIRS})
+    target_link_directories(image_invert PRIVATE ${VIPS_LIBRARY_DIRS})
     target_link_libraries(image_invert PRIVATE ${VIPS_LIBRARIES})
     target_compile_definitions(image_invert PRIVATE HAS_VIPS=1)
 endif()

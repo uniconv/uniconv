@@ -174,10 +174,15 @@ ETLResult NativePlugin::execute(const ETLRequest& request) {
     // Build native request
     UniconvRequest native_req{};
     native_req.etl = static_cast<UniconvETLType>(request.etl);
-    native_req.source = request.source.string().c_str();
-    native_req.target = request.target.c_str();
 
+    // Store strings to keep them alive during execution
+    std::string source_str = request.source.string();
+    std::string target_str = request.target;
     std::string output_str;
+
+    native_req.source = source_str.c_str();
+    native_req.target = target_str.c_str();
+
     if (request.core_options.output) {
         output_str = request.core_options.output->string();
         native_req.output = output_str.c_str();
