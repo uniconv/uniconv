@@ -29,7 +29,7 @@ TEST_F(PresetManagerTest, CreateAndLoadPreset) {
     preset.description = "A test preset";
     preset.etl = ETLType::Transform;
     preset.target = "jpg";
-    preset.core_options.quality = 85;
+    preset.plugin_options = {"--quality", "85"};
 
     manager_->create(preset);
 
@@ -39,7 +39,7 @@ TEST_F(PresetManagerTest, CreateAndLoadPreset) {
     EXPECT_EQ(loaded->description, "A test preset");
     EXPECT_EQ(loaded->etl, ETLType::Transform);
     EXPECT_EQ(loaded->target, "jpg");
-    EXPECT_EQ(loaded->core_options.quality, 85);
+    EXPECT_EQ(loaded->plugin_options.size(), 2);
 }
 
 TEST_F(PresetManagerTest, PresetExists) {
@@ -130,7 +130,7 @@ TEST_F(PresetManagerTest, ExportImportPreset) {
     preset.description = "Export test preset";
     preset.etl = ETLType::Transform;
     preset.target = "webp";
-    preset.core_options.quality = 90;
+    preset.plugin_options = {"--quality", "90"};
 
     manager_->create(preset);
 
@@ -150,5 +150,5 @@ TEST_F(PresetManagerTest, ExportImportPreset) {
     auto loaded = manager_->load("export-test");
     ASSERT_TRUE(loaded.has_value());
     EXPECT_EQ(loaded->name, "export-test");
-    EXPECT_EQ(loaded->core_options.quality, 90);
+    EXPECT_EQ(loaded->plugin_options.size(), 2);
 }

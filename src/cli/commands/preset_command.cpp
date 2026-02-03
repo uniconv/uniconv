@@ -16,6 +16,7 @@ int PresetCommand::execute(const ParsedArgs& args) {
 
     const auto& subcmd = args.subcommand_args[0];
 
+    if (subcmd == "list") return list(args);
     if (subcmd == "create") return create_preset(args);
     if (subcmd == "delete") return delete_preset(args);
     if (subcmd == "show") return show_preset(args);
@@ -60,29 +61,12 @@ int PresetCommand::create_preset(const ParsedArgs& args) {
         return 1;
     }
 
-    if (!args.etl.has_value()) {
-        std::cerr << "Error: ETL operation required (-t, -e, or -l)\n";
-        return 1;
-    }
-
-    core::Preset preset;
-    preset.name = args.subcommand;
-    preset.etl = *args.etl;
-    preset.target = args.target;
-    preset.plugin = args.plugin;
-    preset.core_options = args.core_options;
-    preset.plugin_options = args.plugin_options;
-
-    try {
-        preset_manager_->create(preset);
-        if (!args.core_options.quiet) {
-            std::cout << "Created preset: " << preset.name << "\n";
-        }
-        return 0;
-    } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << "\n";
-        return 1;
-    }
+    // TODO: Implement preset creation from pipeline string
+    // For now, presets should be created by specifying a pipeline string
+    // Example: uniconv preset create instagram "jpg --quality 85 --width 1080"
+    std::cerr << "Error: Preset creation not yet implemented for pipeline syntax\n";
+    std::cerr << "Usage: uniconv preset create <name> \"<pipeline>\"\n";
+    return 1;
 }
 
 int PresetCommand::delete_preset(const ParsedArgs& args) {
@@ -126,14 +110,13 @@ int PresetCommand::show_preset(const ParsedArgs& args) {
         if (preset->plugin) {
             std::cout << "Plugin: " << *preset->plugin << "\n";
         }
-        if (preset->core_options.quality) {
-            std::cout << "Quality: " << *preset->core_options.quality << "\n";
-        }
-        if (preset->core_options.width) {
-            std::cout << "Width: " << *preset->core_options.width << "\n";
-        }
-        if (preset->core_options.height) {
-            std::cout << "Height: " << *preset->core_options.height << "\n";
+        if (!preset->plugin_options.empty()) {
+            std::cout << "Options: ";
+            for (size_t i = 0; i < preset->plugin_options.size(); ++i) {
+                if (i > 0) std::cout << " ";
+                std::cout << preset->plugin_options[i];
+            }
+            std::cout << "\n";
         }
     }
 

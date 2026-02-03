@@ -18,7 +18,9 @@ int PluginCommand::execute(const ParsedArgs& args) {
 
     const auto& action = args.subcommand_args[0];
 
-    if (action == "install") {
+    if (action == "list") {
+        return list(args);
+    } else if (action == "install") {
         return install(args);
     } else if (action == "remove") {
         return remove(args);
@@ -27,7 +29,7 @@ int PluginCommand::execute(const ParsedArgs& args) {
     }
 
     std::cerr << "Unknown plugin action: " << action << "\n";
-    std::cerr << "Available actions: install, remove, info\n";
+    std::cerr << "Available actions: list, install, remove, info\n";
     return 1;
 }
 

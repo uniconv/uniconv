@@ -170,13 +170,7 @@ void output_preset(std::ostream& os, const core::Preset& preset, bool json_mode)
         os << "Plugin: " << *preset.plugin << std::endl;
     }
 
-    // Core options
-    const auto& co = preset.core_options;
-    if (co.quality) os << "Quality: " << *co.quality << std::endl;
-    if (co.width) os << "Width: " << *co.width << std::endl;
-    if (co.height) os << "Height: " << *co.height << std::endl;
-    if (co.target_size) os << "Target size: " << format_size(*co.target_size) << std::endl;
-
+    // Plugin options
     if (!preset.plugin_options.empty()) {
         os << "Plugin options: " << join(preset.plugin_options, " ") << std::endl;
     }

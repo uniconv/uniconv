@@ -103,10 +103,6 @@ struct FileInfo {
 // Core options (shared across plugins)
 struct CoreOptions {
     std::optional<std::filesystem::path> output;
-    std::optional<int> quality;
-    std::optional<int> width;
-    std::optional<int> height;
-    std::optional<size_t> target_size;  // Target file size in bytes
     bool force = false;                  // Overwrite existing
     bool json_output = false;            // Output as JSON
     bool verbose = false;                // Verbose output
@@ -117,10 +113,6 @@ struct CoreOptions {
     nlohmann::json to_json() const {
         nlohmann::json j;
         if (output) j["output"] = output->string();
-        if (quality) j["quality"] = *quality;
-        if (width) j["width"] = *width;
-        if (height) j["height"] = *height;
-        if (target_size) j["target_size"] = *target_size;
         j["force"] = force;
         j["json_output"] = json_output;
         j["verbose"] = verbose;
@@ -288,10 +280,6 @@ struct Preset {
         if (j.contains("core_options")) {
             auto& co = j.at("core_options");
             if (co.contains("output")) p.core_options.output = co.at("output").get<std::string>();
-            if (co.contains("quality")) p.core_options.quality = co.at("quality").get<int>();
-            if (co.contains("width")) p.core_options.width = co.at("width").get<int>();
-            if (co.contains("height")) p.core_options.height = co.at("height").get<int>();
-            if (co.contains("target_size")) p.core_options.target_size = co.at("target_size").get<size_t>();
             p.core_options.force = co.value("force", false);
             p.core_options.verbose = co.value("verbose", false);
             p.core_options.quiet = co.value("quiet", false);

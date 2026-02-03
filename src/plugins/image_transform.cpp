@@ -135,16 +135,68 @@ core::ETLResult ImageTransformPlugin::execute(const core::ETLRequest& request) {
         return result;
     }
 
+    // Parse plugin options
+    auto image_options = parse_plugin_options(request.plugin_options);
+
     // Perform conversion
-    return convert_image(request.source, output_path, request.target, request.core_options);
+    return convert_image(request.source, output_path, request.target, request.core_options, image_options);
 #endif
+}
+
+ImageTransformPlugin::ImageOptions ImageTransformPlugin::parse_plugin_options(
+    const std::vector<std::string>& plugin_options
+) const {
+    ImageOptions opts;
+
+    for (size_t i = 0; i < plugin_options.size(); ++i) {
+        const auto& opt = plugin_options[i];
+
+        // Handle --key=value format
+        auto eq_pos = opt.find('=');
+        std::string key;
+        std::string value;
+
+        if (eq_pos != std::string::npos) {
+            key = opt.substr(0, eq_pos);
+            value = opt.substr(eq_pos + 1);
+        } else if (i + 1 < plugin_options.size() && !plugin_options[i + 1].starts_with("-")) {
+            // Handle --key value format
+            key = opt;
+            value = plugin_options[++i];
+        } else {
+            continue;
+        }
+
+        // Remove leading dashes
+        while (!key.empty() && key[0] == '-') {
+            key = key.substr(1);
+        }
+
+        // Parse known options
+        if (key == "quality" || key == "q") {
+            try {
+                opts.quality = std::stoi(value);
+            } catch (...) {}
+        } else if (key == "width" || key == "w") {
+            try {
+                opts.width = std::stoi(value);
+            } catch (...) {}
+        } else if (key == "height" || key == "h" || key == "H") {
+            try {
+                opts.height = std::stoi(value);
+            } catch (...) {}
+        }
+    }
+
+    return opts;
 }
 
 core::ETLResult ImageTransformPlugin::convert_image(
     const std::filesystem::path& input,
     const std::filesystem::path& output,
     const std::string& format,
-    const core::CoreOptions& options
+    [[maybe_unused]] const core::CoreOptions& core_options,
+    const ImageOptions& options
 ) {
 #ifndef UNICONV_HAS_VIPS
     return core::ETLResult::failure(
@@ -197,8 +249,12 @@ core::ETLResult ImageTransformPlugin::convert_image(
             image.jpegsave(output.string().c_str(),
                 vips::VImage::option()->set("Q", quality));
         } else if (lower_format == "png") {
-            // PNG compression level (0-9), we map quality 0-100 to 9-0
-            int compression = 9 - (quality * 9 / 100);
+            // PNG is lossless, so "quality" controls compression effort
+            // quality 100 = compression 0 (no compression, largest file, fastest)
+            // quality 0 = compression 9 (max compression, smallest file, slowest)
+            // Note: vips compression 1-3 often produces smaller files than 4-9
+            // due to filter selection, but we use linear mapping for predictability
+            int compression = (100 - quality) * 9 / 100;
             image.pngsave(output.string().c_str(),
                 vips::VImage::option()->set("compression", compression));
         } else if (lower_format == "webp") {

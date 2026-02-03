@@ -11,8 +11,15 @@ set(UNICONV_SOURCES
     ${CMAKE_SOURCE_DIR}/src/core/engine.cpp
     ${CMAKE_SOURCE_DIR}/src/core/plugin_manager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/preset_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/pipeline_executor.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/plugin_discovery.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/plugin_loader_cli.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/plugin_loader_native.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/config_manager.cpp
     ${CMAKE_SOURCE_DIR}/src/plugins/image_transform.cpp
     ${CMAKE_SOURCE_DIR}/src/cli/parser.cpp
+    ${CMAKE_SOURCE_DIR}/src/cli/pipeline_parser.cpp
+    ${CMAKE_SOURCE_DIR}/src/builtins/tee.cpp
     ${CMAKE_SOURCE_DIR}/src/utils/file_utils.cpp
     ${CMAKE_SOURCE_DIR}/src/utils/string_utils.cpp
     ${CMAKE_SOURCE_DIR}/src/utils/json_output.cpp
@@ -24,6 +31,7 @@ add_executable(uniconv_tests
     unit/test_string_utils.cpp
     unit/test_file_utils.cpp
     unit/test_preset_manager.cpp
+    unit/test_pipeline_parser.cpp
     ${UNICONV_SOURCES}
 )
 

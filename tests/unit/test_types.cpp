@@ -71,7 +71,7 @@ TEST(TypesTest, PresetToJson) {
     preset.description = "JPEG for web";
     preset.etl = ETLType::Transform;
     preset.target = "jpg";
-    preset.core_options.quality = 85;
+    preset.plugin_options = {"--quality", "85"};
 
     auto j = preset.to_json();
 
@@ -79,6 +79,7 @@ TEST(TypesTest, PresetToJson) {
     EXPECT_EQ(j["description"], "JPEG for web");
     EXPECT_EQ(j["etl"], "transform");
     EXPECT_EQ(j["target"], "jpg");
+    EXPECT_EQ(j["plugin_options"].size(), 2);
 }
 
 TEST(TypesTest, PresetFromJson) {
@@ -87,7 +88,7 @@ TEST(TypesTest, PresetFromJson) {
         {"description", "JPEG for web"},
         {"etl", "transform"},
         {"target", "jpg"},
-        {"core_options", {{"quality", 85}}}
+        {"plugin_options", {"--quality", "85"}}
     };
 
     auto preset = Preset::from_json(j);
@@ -96,5 +97,5 @@ TEST(TypesTest, PresetFromJson) {
     EXPECT_EQ(preset.description, "JPEG for web");
     EXPECT_EQ(preset.etl, ETLType::Transform);
     EXPECT_EQ(preset.target, "jpg");
-    EXPECT_EQ(preset.core_options.quality, 85);
+    EXPECT_EQ(preset.plugin_options.size(), 2);
 }

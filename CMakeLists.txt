@@ -74,19 +74,20 @@ add_executable(uniconv
     src/core/config_manager.cpp
     src/core/plugin_loader_native.h
     src/core/plugin_loader_native.cpp
+    src/core/pipeline_executor.cpp
     src/plugins/plugin_interface.h
     src/plugins/image_transform.h
     src/plugins/image_transform.cpp
+    src/builtins/tee.cpp
     src/cli/parser.h
     src/cli/parser.cpp
+    src/cli/pipeline_parser.cpp
     src/cli/commands/info_command.h
     src/cli/commands/info_command.cpp
     src/cli/commands/formats_command.h
     src/cli/commands/formats_command.cpp
     src/cli/commands/preset_command.h
     src/cli/commands/preset_command.cpp
-    src/cli/commands/etl_command.h
-    src/cli/commands/etl_command.cpp
     src/cli/commands/plugin_command.h
     src/cli/commands/plugin_command.cpp
     src/cli/commands/config_command.h

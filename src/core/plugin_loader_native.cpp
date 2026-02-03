@@ -152,21 +152,7 @@ ETLResult NativePlugin::execute(const ETLRequest& request) {
     // Build option context
     OptionContext opt_ctx;
 
-    // Core options
-    if (request.core_options.quality) {
-        opt_ctx.core_options["quality"] = std::to_string(*request.core_options.quality);
-    }
-    if (request.core_options.width) {
-        opt_ctx.core_options["width"] = std::to_string(*request.core_options.width);
-    }
-    if (request.core_options.height) {
-        opt_ctx.core_options["height"] = std::to_string(*request.core_options.height);
-    }
-    if (request.core_options.target_size) {
-        opt_ctx.core_options["target_size"] = std::to_string(*request.core_options.target_size);
-    }
-
-    // Plugin options (parse key=value pairs)
+    // Parse plugin options (key=value pairs or --key value or flags)
     for (const auto& opt : request.plugin_options) {
         auto eq_pos = opt.find('=');
         if (eq_pos != std::string::npos) {
