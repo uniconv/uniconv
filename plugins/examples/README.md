@@ -9,25 +9,29 @@ This directory contains example plugins demonstrating how to create plugins for 
 CLI plugins are external executables that uniconv invokes as subprocesses. They can be written in any language (Python, Go, Rust, Node.js, etc.).
 
 **Pros:**
+
 - Easy to develop in any language
 - No compilation needed for interpreted languages
 - Safe isolation (runs in separate process)
 
 **Cons:**
+
 - Slightly slower due to process overhead
 - Requires runtime (Python, Node.js, etc.) to be installed
 
-See: `python/image-grayscale/`
+See: `python/image-grayscale/`, `python/image-ascii/`
 
 ### Native Plugins (For performance-critical use cases)
 
 Native plugins are shared libraries (.so, .dylib, .dll) that uniconv loads directly. They must implement the C ABI defined in `uniconv/plugin_api.h`.
 
 **Pros:**
+
 - Maximum performance (no IPC overhead)
 - Direct memory access
 
 **Cons:**
+
 - Must be compiled for each platform
 - More complex to develop
 - Bugs can crash the main process
@@ -63,14 +67,68 @@ uniconv plugins
 
 ```bash
 # Basic usage
-uniconv photo.jpg -t grayscale
+uniconv "photo.jpg | grayscale"
 
 # With options
-uniconv photo.jpg -t grayscale -- --method average
+uniconv "photo.jpg | grayscale --method average"
 
 # Specify output
-uniconv photo.jpg -t grayscale -o photo_bw.jpg
+uniconv -o photo_bw.jpg "photo.jpg | grayscale"
 ```
+
+---
+
+## CLI Plugin: image-ascii (Python)
+
+Converts images to ASCII art using Python/Pillow.
+
+### Requirements
+
+```bash
+pip install Pillow
+```
+
+### Installation
+
+```bash
+# Copy to user plugins directory
+cp -r python/image-ascii ~/.uniconv/plugins/
+
+# Make executable
+chmod +x ~/.uniconv/plugins/image-ascii/ascii.py
+
+# Verify installation
+uniconv plugins
+```
+
+### Usage
+
+```bash
+# Basic usage (80 chars wide)
+uniconv "photo.jpg | ascii"
+
+# Wider output with detailed character set
+uniconv "photo.jpg | ascii --width 120 --charset detailed"
+
+# Inverted for dark terminal backgrounds
+uniconv "photo.jpg | ascii --invert"
+
+# ANSI colored output (for terminal)
+uniconv "photo.jpg | ascii --color"
+
+# HTML output (for browser viewing)
+uniconv "photo.jpg | ascii --html --width 150"
+
+# Block characters for solid look
+uniconv "photo.jpg | ascii --charset blocks"
+```
+
+### Character Sets
+
+- **standard**: ` .:-=+*#%@` (10 levels, balanced)
+- **simple**: ` .:*#` (5 levels, minimal)
+- **blocks**: ` ░▒▓█` (5 levels, solid Unicode blocks)
+- **detailed**: 70 characters (fine gradation)
 
 ---
 
@@ -108,7 +166,7 @@ uniconv plugins
 ### Usage
 
 ```bash
-uniconv photo.jpg -t invert
+uniconv "photo.jpg | invert"
 ```
 
 ---
@@ -206,6 +264,7 @@ Or on error:
 See `include/uniconv/plugin_api.h` for the C ABI specification.
 
 Required functions:
+
 - `uniconv_plugin_info()` - Return plugin information
 - `uniconv_plugin_execute()` - Process a file
 - `uniconv_plugin_free_result()` - Free result memory
