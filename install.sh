@@ -32,7 +32,7 @@ fetch_latest_version() {
           "Check your internet connection or visit https://github.com/${REPO}/releases for manual download."
   fi
 
-  echo "$response" | grep '"tag_name"' | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/'
+  echo "$response" | grep '"tag_name"' | sed -E 's/.*"tag_name":[[:space:]]*"([^"]+)".*/\1/'
 }
 
 download_and_install() {
