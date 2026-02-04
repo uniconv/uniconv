@@ -47,7 +47,7 @@ jobs:
       - name: Package
         run: |
           tar -czf "uniconv-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz" \
-            -C build/bin uniconv
+            -C build uniconv
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
