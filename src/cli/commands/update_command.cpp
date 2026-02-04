@@ -8,9 +8,8 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#else
+#elif defined(__APPLE__)
 #include <mach-o/dyld.h>
-#include <unistd.h>
 #endif
 
 namespace uniconv::cli::commands
