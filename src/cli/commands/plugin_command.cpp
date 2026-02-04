@@ -160,7 +160,7 @@ namespace uniconv::cli::commands
     {
         auto client = make_registry_client();
 
-        auto index = client->fetch_index();
+        auto index = client->fetch_index(true);
         if (!index)
         {
             std::cerr << "Error: Could not fetch registry index\n";

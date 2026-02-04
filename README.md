@@ -66,6 +66,14 @@ The binary is at `build/bin/uniconv`. Add it to your `PATH` or install system-wi
 sudo cmake --install .
 ```
 
+### Update
+
+To update uniconv to the latest version, re-run the install script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/uniconv/uniconv/main/install.sh | bash
+```
+
 ## Quick Start
 
 ```bash
