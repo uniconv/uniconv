@@ -393,7 +393,28 @@ namespace uniconv::core
         const std::filesystem::path &executable,
         const std::vector<std::string> &args) const
     {
-        auto subprocess_result = run_subprocess(executable.string(), args, timeout_);
+        auto command = executable.string();
+        auto final_args = args;
+
+#ifdef _WIN32
+        // Windows lacks shebang support; map script extensions to interpreters
+        auto ext = to_lower(executable.extension().string());
+        std::string interpreter;
+        if (ext == ".py")
+            interpreter = "python";
+        else if (ext == ".js")
+            interpreter = "node";
+        else if (ext == ".rb")
+            interpreter = "ruby";
+
+        if (!interpreter.empty())
+        {
+            final_args.insert(final_args.begin(), command);
+            command = interpreter;
+        }
+#endif
+
+        auto subprocess_result = run_subprocess(command, final_args, timeout_);
 
         ExecuteResult result;
         result.exit_code = subprocess_result.exit_code;
