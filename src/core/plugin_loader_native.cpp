@@ -4,13 +4,6 @@
 #include <cstring>
 #include <map>
 
-#ifdef UNICONV_HAS_FFMPEG
-extern "C"
-{
-#include <libavutil/log.h>
-}
-#endif
-
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -197,6 +190,12 @@ namespace uniconv::core
         // Build option context
         OptionContext opt_ctx;
 
+        // Pass core options so plugins can query them (e.g., verbose, quiet)
+        if (request.core_options.verbose)
+            opt_ctx.core_options["verbose"] = "true";
+        if (request.core_options.quiet)
+            opt_ctx.core_options["quiet"] = "true";
+
         // Parse plugin options (key=value pairs or --key value or flags)
         for (const auto &opt : request.plugin_options)
         {
@@ -246,11 +245,6 @@ namespace uniconv::core
         native_req.get_core_option = get_core_option_impl;
         native_req.get_plugin_option = get_plugin_option_impl;
         native_req.options_ctx = &opt_ctx;
-
-#ifdef UNICONV_HAS_FFMPEG
-        // Suppress FFmpeg log output from plugins
-        av_log_set_level(AV_LOG_QUIET);
-#endif
 
         // Execute
         auto execute_fn = reinterpret_cast<UniconvPluginExecuteFunc>(execute_func_);

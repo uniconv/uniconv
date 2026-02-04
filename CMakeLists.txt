@@ -13,8 +13,6 @@ include(CompilerWarnings)
 # Options
 option(UNICONV_BUILD_TESTS "Build tests" ON)
 option(UNICONV_ENABLE_WARNINGS "Enable compiler warnings" ON)
-option(UNICONV_WITH_FFMPEG "Build with FFmpeg support (for log suppression)" ON)
-
 # Fetch dependencies
 include(FetchContent)
 
@@ -33,19 +31,6 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(cli11 json)
-
-# Find FFmpeg libavutil (optional, for log suppression)
-if(UNICONV_WITH_FFMPEG)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(AVUTIL libavutil)
-    if(AVUTIL_FOUND)
-        message(STATUS "FFmpeg libavutil found - FFmpeg log suppression enabled")
-        add_compile_definitions(UNICONV_HAS_FFMPEG=1)
-    else()
-        message(STATUS "FFmpeg libavutil not found - FFmpeg log suppression disabled")
-        set(UNICONV_WITH_FFMPEG OFF)
-    endif()
-endif()
 
 # Configure version header
 configure_file(
@@ -118,12 +103,6 @@ target_link_libraries(uniconv PRIVATE
     CLI11::CLI11
     nlohmann_json::nlohmann_json
 )
-
-if(AVUTIL_FOUND)
-    target_include_directories(uniconv PRIVATE ${AVUTIL_INCLUDE_DIRS})
-    target_link_libraries(uniconv PRIVATE ${AVUTIL_LIBRARIES})
-    target_link_directories(uniconv PRIVATE ${AVUTIL_LIBRARY_DIRS})
-endif()
 
 if(UNICONV_ENABLE_WARNINGS)
     set_project_warnings(uniconv)
