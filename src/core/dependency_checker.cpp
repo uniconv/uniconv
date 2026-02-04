@@ -332,13 +332,13 @@ namespace uniconv::core
     {
         DependencyCheckResult result;
 
-        auto output = run_capture_command("pip", {"show", dep.name});
+        auto output = run_capture_command("python3", {"-m", "pip", "show", dep.name});
 
         if (output.empty())
         {
             result.satisfied = false;
             result.message = "Python package " + dep.name + " not installed";
-            result.install_hint = "pip install ";
+            result.install_hint = "python3 -m pip install ";
             if (dep.version)
                 result.install_hint += "'" + dep.name + *dep.version + "'";
             else
@@ -366,7 +366,7 @@ namespace uniconv::core
                         result.satisfied = false;
                         result.message = dep.name + " " + found_version +
                                          " does not satisfy " + *dep.version;
-                        result.install_hint = "pip install '" + dep.name + *dep.version + "'";
+                        result.install_hint = "python3 -m pip install '" + dep.name + *dep.version + "'";
                         return result;
                     }
                     break;
