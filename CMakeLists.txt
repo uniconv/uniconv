@@ -13,7 +13,6 @@ include(CompilerWarnings)
 # Options
 option(UNICONV_BUILD_TESTS "Build tests" ON)
 option(UNICONV_ENABLE_WARNINGS "Enable compiler warnings" ON)
-option(UNICONV_WITH_VIPS "Build with libvips support" ON)
 option(UNICONV_WITH_FFMPEG "Build with FFmpeg support (for log suppression)" ON)
 
 # Fetch dependencies
@@ -34,20 +33,6 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(cli11 json)
-
-# Find libvips (optional)
-if(UNICONV_WITH_VIPS)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(VIPS vips-cpp)
-    if(VIPS_FOUND)
-        message(STATUS "libvips found - image transform plugin enabled")
-        add_compile_definitions(UNICONV_HAS_VIPS=1)
-    else()
-        message(WARNING "libvips not found - image transform plugin disabled")
-        message(STATUS "Install with: brew install vips (macOS) or apt install libvips-dev (Linux)")
-        set(UNICONV_WITH_VIPS OFF)
-    endif()
-endif()
 
 # Find FFmpeg libavutil (optional, for log suppression)
 if(UNICONV_WITH_FFMPEG)
@@ -90,8 +75,6 @@ add_executable(uniconv
     src/core/plugin_loader_native.cpp
     src/core/pipeline_executor.cpp
     src/plugins/plugin_interface.h
-    src/plugins/image_transform.h
-    src/plugins/image_transform.cpp
     src/builtins/tee.cpp
     src/cli/parser.h
     src/cli/parser.cpp
@@ -135,12 +118,6 @@ target_link_libraries(uniconv PRIVATE
     CLI11::CLI11
     nlohmann_json::nlohmann_json
 )
-
-if(VIPS_FOUND)
-    target_include_directories(uniconv PRIVATE ${VIPS_INCLUDE_DIRS})
-    target_link_libraries(uniconv PRIVATE ${VIPS_LIBRARIES})
-    target_link_directories(uniconv PRIVATE ${VIPS_LIBRARY_DIRS})
-endif()
 
 if(AVUTIL_FOUND)
     target_include_directories(uniconv PRIVATE ${AVUTIL_INCLUDE_DIRS})

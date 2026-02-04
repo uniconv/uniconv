@@ -167,6 +167,7 @@ namespace uniconv::cli
         plugin_cmd->require_subcommand(1);
 
         auto *plugin_list = plugin_cmd->add_subcommand("list", "List installed plugins");
+        plugin_list->add_flag("--registry", args.list_registry, "List all plugins available in the registry");
         plugin_list->callback([&args]()
                               {
         args.command = Command::Plugin;

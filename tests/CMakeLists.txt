@@ -16,7 +16,6 @@ set(UNICONV_SOURCES
     ${CMAKE_SOURCE_DIR}/src/core/plugin_loader_cli.cpp
     ${CMAKE_SOURCE_DIR}/src/core/plugin_loader_native.cpp
     ${CMAKE_SOURCE_DIR}/src/core/config_manager.cpp
-    ${CMAKE_SOURCE_DIR}/src/plugins/image_transform.cpp
     ${CMAKE_SOURCE_DIR}/src/cli/parser.cpp
     ${CMAKE_SOURCE_DIR}/src/cli/pipeline_parser.cpp
     ${CMAKE_SOURCE_DIR}/src/builtins/tee.cpp
@@ -54,12 +53,6 @@ target_include_directories(uniconv_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_BINARY_DIR}/include
 )
-
-if(VIPS_FOUND)
-    target_include_directories(uniconv_tests PRIVATE ${VIPS_INCLUDE_DIRS})
-    target_link_libraries(uniconv_tests PRIVATE ${VIPS_LIBRARIES})
-    target_link_directories(uniconv_tests PRIVATE ${VIPS_LIBRARY_DIRS})
-endif()
 
 if(AVUTIL_FOUND)
     target_include_directories(uniconv_tests PRIVATE ${AVUTIL_INCLUDE_DIRS})

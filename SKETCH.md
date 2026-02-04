@@ -731,8 +731,8 @@ uniconv --install-context-menu
 - **빌드**: CMake
 - **CLI 파싱**: CLI11
 - **JSON**: nlohmann/json
-- **이미지**: libvips (+ libheif for HEIC)
 - **비디오/오디오**: FFmpeg (libav\*)
+- **이미지**: libvips (외부 플러그인 `image-convert` 통해 제공)
 
 ### 10.2 플러그인
 
@@ -840,8 +840,8 @@ uniconv/
 │   │   └── watcher.cpp
 │   ├── builtins/
 │   │   └── tee.cpp                # tee builtin
-│   ├── plugins/                   # built-in 플러그인
-│   │   ├── image_transform.cpp
+│   ├── plugins/                   # 플러그인 인터페이스
+│   │   ├── plugin_interface.h     # IPlugin base class
 │   │   ├── ffmpeg_transform.cpp
 │   │   └── ffmpeg_extract.cpp
 │   └── utils/

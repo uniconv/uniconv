@@ -39,6 +39,7 @@ struct ParsedArgs {
     bool interactive = false;
     bool no_interactive = false;
     bool watch = false;
+    bool list_registry = false;
     std::optional<std::string> preset;
 };
 

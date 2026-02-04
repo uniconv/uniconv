@@ -49,6 +49,9 @@ private:
     core::InstalledPlugins installed_;
     core::DependencyChecker dep_checker_;
 
+    // List all plugins available in the registry
+    int list_registry(const ParsedArgs& args);
+
     // Copy plugin directory to user plugins folder
     bool copy_plugin(const std::filesystem::path& source, const std::filesystem::path& dest);
 

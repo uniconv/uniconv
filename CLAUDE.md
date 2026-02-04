@@ -24,7 +24,6 @@ ctest -V        # Verbose output
 
 **CMake Options:**
 - `UNICONV_BUILD_TESTS` (ON) - Enable unit tests
-- `UNICONV_WITH_VIPS` (ON) - Optional libvips image support
 
 ## Architecture
 
@@ -119,5 +118,6 @@ For final stage output (in order of priority):
 
 - **CLI11** v2.4.2 - Command-line parsing
 - **nlohmann/json** v3.11.3 - JSON serialization
-- **libvips** (optional) - Image transformation
 - **Google Test** v1.14.0 - Unit testing
+
+Note: Image conversion (libvips) is now provided by the external `image-convert` plugin in `plugins/image-convert/`.

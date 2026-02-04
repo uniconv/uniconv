@@ -57,6 +57,11 @@ namespace uniconv::cli::commands
 
     int PluginCommand::list(const ParsedArgs &args)
     {
+        if (args.list_registry)
+        {
+            return list_registry(args);
+        }
+
         // Discover all plugins
         auto manifests = discovery_.discover_all();
 
@@ -151,20 +156,136 @@ namespace uniconv::cli::commands
         return 0;
     }
 
+    int PluginCommand::list_registry(const ParsedArgs &args)
+    {
+        auto client = make_registry_client();
+
+        auto index = client->fetch_index();
+        if (!index)
+        {
+            std::cerr << "Error: Could not fetch registry index\n";
+            return 1;
+        }
+
+        auto collections_result = client->fetch_collections();
+
+        if (args.core_options.json_output)
+        {
+            nlohmann::json j;
+
+            j["plugins"] = nlohmann::json::array();
+            for (const auto &entry : index->plugins)
+            {
+                auto pj = entry.to_json();
+                pj["installed"] = installed_.is_registry_installed(entry.name);
+                j["plugins"].push_back(pj);
+            }
+
+            j["collections"] = nlohmann::json::array();
+            if (collections_result)
+            {
+                for (const auto &c : collections_result->collections)
+                {
+                    j["collections"].push_back(c.to_json());
+                }
+            }
+
+            std::cout << j.dump(2) << std::endl;
+            return 0;
+        }
+
+        // Text mode: plugins section
+        std::cout << "PLUGINS\n";
+        std::cout << std::left
+                  << std::setw(25) << "NAME"
+                  << std::setw(10) << "VERSION"
+                  << std::setw(12) << "INTERFACE"
+                  << "DESCRIPTION\n";
+        std::cout << std::string(80, '-') << "\n";
+
+        for (const auto &entry : index->plugins)
+        {
+            std::string name_col = entry.name;
+            if (installed_.is_registry_installed(entry.name))
+            {
+                name_col += " [installed]";
+            }
+
+            std::string desc = entry.description;
+            if (desc.size() > 35)
+                desc = desc.substr(0, 32) + "...";
+
+            std::cout << std::left
+                      << std::setw(25) << name_col
+                      << std::setw(10) << entry.latest
+                      << std::setw(12) << entry.interface
+                      << desc << "\n";
+        }
+
+        std::cout << "\n"
+                  << index->plugins.size() << " plugin(s) available\n";
+
+        // Collections section
+        if (collections_result && !collections_result->collections.empty())
+        {
+            std::cout << "\nCOLLECTIONS\n";
+            std::cout << std::left
+                      << std::setw(25) << "NAME"
+                      << std::setw(35) << "PLUGINS"
+                      << "DESCRIPTION\n";
+            std::cout << std::string(80, '-') << "\n";
+
+            for (const auto &c : collections_result->collections)
+            {
+                std::string plugins_str;
+                for (size_t i = 0; i < c.plugins.size(); ++i)
+                {
+                    if (i > 0)
+                        plugins_str += ",";
+                    plugins_str += c.plugins[i];
+                }
+                if (plugins_str.size() > 32)
+                    plugins_str = plugins_str.substr(0, 29) + "...";
+
+                std::string desc = c.description;
+                if (desc.size() > 30)
+                    desc = desc.substr(0, 27) + "...";
+
+                std::cout << std::left
+                          << std::setw(25) << c.name
+                          << std::setw(35) << plugins_str
+                          << desc << "\n";
+            }
+
+            std::cout << "\n"
+                      << collections_result->collections.size() << " collection(s) available\n";
+        }
+
+        return 0;
+    }
+
     int PluginCommand::install(const ParsedArgs &args)
     {
         if (args.subcommand_args.size() < 2)
         {
-            std::cerr << "Usage: uniconv plugin install <name[@version]> | <path> | +<collection>\n";
+            std::cerr << "Usage: uniconv plugin install <name[@version]> | <path> | +<collection> | collection:<name>\n";
             return 1;
         }
 
         const auto &source_arg = args.subcommand_args[1];
 
-        // Check if source is a collection (+ prefix)
+        // Check if source is a collection (+ prefix or collection: prefix)
         if (source_arg.size() > 1 && source_arg[0] == '+')
         {
             auto collection_name = source_arg.substr(1);
+            return install_collection(collection_name, args);
+        }
+
+        const std::string kCollectionPrefix = "collection:";
+        if (source_arg.size() > kCollectionPrefix.size() &&
+            source_arg.substr(0, kCollectionPrefix.size()) == kCollectionPrefix)
+        {
+            auto collection_name = source_arg.substr(kCollectionPrefix.size());
             return install_collection(collection_name, args);
         }
 

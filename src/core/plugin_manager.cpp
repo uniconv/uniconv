@@ -1,7 +1,6 @@
 #include "plugin_manager.h"
 #include "plugin_loader_cli.h"
 #include "plugin_loader_native.h"
-#include "plugins/image_transform.h"
 #include <algorithm>
 #include <set>
 
@@ -28,12 +27,7 @@ namespace uniconv::core
 
     void PluginManager::register_builtin_plugins()
     {
-        // Register image transform plugin
-        register_plugin(std::make_unique<plugins::ImageTransformPlugin>());
-
-        // Future: FFmpeg transform/extract plugins
-        // register_plugin(std::make_unique<plugins::FFmpegTransformPlugin>());
-        // register_plugin(std::make_unique<plugins::FFmpegExtractPlugin>());
+        // All plugins are now external (loaded via load_external_plugins)
     }
 
     void PluginManager::load_external_plugins()
