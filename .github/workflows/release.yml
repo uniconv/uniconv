@@ -19,12 +19,14 @@ jobs:
           - os: ubuntu-24.04-arm
             arch: aarch64
             platform: linux
-          - os: macos-13
+          - os: macos-latest
             arch: x86_64
             platform: darwin
+            cmake_flags: -DCMAKE_OSX_ARCHITECTURES=x86_64
           - os: macos-latest
             arch: aarch64
             platform: darwin
+            cmake_flags: -DCMAKE_OSX_ARCHITECTURES=arm64
 
     runs-on: ${{ matrix.os }}
 
@@ -41,7 +43,7 @@ jobs:
       - name: Build
         run: |
           mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=Release ..
+          cmake -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }} ..
           cmake --build . --config Release
 
       - name: Package
