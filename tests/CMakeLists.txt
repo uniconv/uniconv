@@ -25,6 +25,7 @@ set(UNICONV_SOURCES
     ${CMAKE_SOURCE_DIR}/src/utils/version_utils.cpp
     ${CMAKE_SOURCE_DIR}/src/utils/http_utils.cpp
     ${CMAKE_SOURCE_DIR}/src/core/dependency_checker.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/dependency_installer.cpp
     ${CMAKE_SOURCE_DIR}/src/core/installed_plugins.cpp
     ${CMAKE_SOURCE_DIR}/src/core/registry_client.cpp
 )

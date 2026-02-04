@@ -1,4 +1,5 @@
 #include "plugin_manager.h"
+#include "config_manager.h"
 #include "plugin_loader_cli.h"
 #include "plugin_loader_native.h"
 #include <algorithm>
@@ -21,6 +22,7 @@ namespace uniconv::core
     } // anonymous namespace
 
     PluginManager::PluginManager()
+        : dep_installer_(ConfigManager::get_default_config_dir() / "deps")
     {
         register_builtin_plugins();
     }
@@ -45,6 +47,12 @@ namespace uniconv::core
             if (CLIPluginLoader::is_cli_plugin(manifest))
             {
                 plugin = CLIPluginLoader::load(manifest);
+                // Set dependency environment for CLI plugins
+                if (auto* cli_plugin = dynamic_cast<CLIPlugin*>(plugin.get()))
+                {
+                    auto dep_env = dep_installer_.get_env(manifest.name);
+                    cli_plugin->set_dep_environment(dep_env);
+                }
             }
             else if (NativePluginLoader::is_native_plugin(manifest))
             {
@@ -70,6 +78,12 @@ namespace uniconv::core
             if (CLIPluginLoader::is_cli_plugin(manifest))
             {
                 plugin = CLIPluginLoader::load(manifest);
+                // Set dependency environment for CLI plugins
+                if (auto* cli_plugin = dynamic_cast<CLIPlugin*>(plugin.get()))
+                {
+                    auto dep_env = dep_installer_.get_env(manifest.name);
+                    cli_plugin->set_dep_environment(dep_env);
+                }
             }
             else if (NativePluginLoader::is_native_plugin(manifest))
             {

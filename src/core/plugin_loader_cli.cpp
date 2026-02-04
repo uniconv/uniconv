@@ -1,7 +1,9 @@
 #include "plugin_loader_cli.h"
+#include "dependency_installer.h"
 #include <algorithm>
 #include <array>
 #include <cstdio>
+#include <cstdlib>
 #include <utility>
 
 #ifdef _WIN32
@@ -39,7 +41,8 @@ namespace uniconv::core
 #ifndef _WIN32
         SubprocessResult run_subprocess(const std::string &command,
                                         const std::vector<std::string> &args,
-                                        std::chrono::seconds timeout)
+                                        std::chrono::seconds timeout,
+                                        const std::map<std::string, std::string> &env = {})
         {
             SubprocessResult result;
 
@@ -76,6 +79,12 @@ namespace uniconv::core
 
                 close(stdout_pipe[1]);
                 close(stderr_pipe[1]);
+
+                // Set environment variables
+                for (const auto &[key, value] : env)
+                {
+                    setenv(key.c_str(), value.c_str(), 1);
+                }
 
                 // Build argv
                 std::vector<char *> argv;
@@ -196,7 +205,8 @@ namespace uniconv::core
         // Windows implementation
         SubprocessResult run_subprocess(const std::string &command,
                                         const std::vector<std::string> &args,
-                                        std::chrono::seconds timeout)
+                                        std::chrono::seconds timeout,
+                                        const std::map<std::string, std::string> &env = {})
         {
             SubprocessResult result;
 
@@ -208,6 +218,42 @@ namespace uniconv::core
                 cmdline << " \"" << arg << "\"";
             }
             std::string cmdline_str = cmdline.str();
+
+            // Build environment block if provided
+            std::string env_block;
+            LPVOID env_ptr = NULL;
+            if (!env.empty())
+            {
+                // Get current environment and merge with new vars
+                for (const auto &[key, value] : env)
+                {
+                    env_block += key + "=" + value + '\0';
+                }
+                // Add existing environment variables
+                char *current_env = GetEnvironmentStringsA();
+                if (current_env)
+                {
+                    char *p = current_env;
+                    while (*p)
+                    {
+                        std::string var(p);
+                        // Check if this var is overridden
+                        auto eq_pos = var.find('=');
+                        if (eq_pos != std::string::npos)
+                        {
+                            std::string key = var.substr(0, eq_pos);
+                            if (env.find(key) == env.end())
+                            {
+                                env_block += var + '\0';
+                            }
+                        }
+                        p += var.length() + 1;
+                    }
+                    FreeEnvironmentStringsA(current_env);
+                }
+                env_block += '\0'; // Double null terminator
+                env_ptr = const_cast<char*>(env_block.c_str());
+            }
 
             // Create pipes
             SECURITY_ATTRIBUTES sa;
@@ -236,7 +282,7 @@ namespace uniconv::core
 
             PROCESS_INFORMATION pi = {};
 
-            if (!CreateProcessA(NULL, cmdline_str.data(), NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi))
+            if (!CreateProcessA(NULL, cmdline_str.data(), NULL, NULL, TRUE, 0, env_ptr, NULL, &si, &pi))
             {
                 result.stderr_data = "Failed to create process";
                 CloseHandle(stdout_read);
@@ -390,12 +436,110 @@ namespace uniconv::core
         return args;
     }
 
+    std::map<std::string, std::string> CLIPlugin::build_environment() const
+    {
+        std::map<std::string, std::string> env;
+
+        if (!dep_env_dir_) {
+            return env;
+        }
+
+        auto env_dir = *dep_env_dir_;
+        if (!std::filesystem::exists(env_dir)) {
+            return env;
+        }
+
+        // Build PATH additions
+        std::string path_additions;
+
+#ifdef _WIN32
+        auto python_bin = env_dir / "python" / "Scripts";
+        auto node_bin = env_dir / "node" / "node_modules" / ".bin";
+        const char path_sep = ';';
+#else
+        auto python_bin = env_dir / "python" / "bin";
+        auto node_bin = env_dir / "node" / "node_modules" / ".bin";
+        const char path_sep = ':';
+#endif
+
+        if (std::filesystem::exists(python_bin)) {
+            path_additions = python_bin.string();
+        }
+        if (std::filesystem::exists(node_bin)) {
+            if (!path_additions.empty()) {
+                path_additions += path_sep;
+            }
+            path_additions += node_bin.string();
+        }
+
+        // Prepend to existing PATH
+        if (!path_additions.empty()) {
+            const char* current_path = std::getenv("PATH");
+            if (current_path) {
+                path_additions += path_sep;
+                path_additions += current_path;
+            }
+            env["PATH"] = path_additions;
+        }
+
+        // Set Python virtualenv variables
+        auto python_venv = env_dir / "python";
+        if (std::filesystem::exists(python_venv)) {
+            env["VIRTUAL_ENV"] = python_venv.string();
+
+            // Set PYTHONPATH to site-packages
+#ifdef _WIN32
+            auto site_packages = python_venv / "Lib" / "site-packages";
+#else
+            // Find the python version directory
+            auto lib_dir = python_venv / "lib";
+            std::filesystem::path site_packages;
+            if (std::filesystem::exists(lib_dir)) {
+                for (const auto& entry : std::filesystem::directory_iterator(lib_dir)) {
+                    if (entry.is_directory() &&
+                        entry.path().filename().string().find("python") == 0) {
+                        site_packages = entry.path() / "site-packages";
+                        break;
+                    }
+                }
+            }
+#endif
+            if (std::filesystem::exists(site_packages)) {
+                env["PYTHONPATH"] = site_packages.string();
+            }
+        }
+
+        // Set NODE_PATH
+        auto node_modules = env_dir / "node" / "node_modules";
+        if (std::filesystem::exists(node_modules)) {
+            env["NODE_PATH"] = node_modules.string();
+        }
+
+        return env;
+    }
+
+    void CLIPlugin::set_dep_environment(std::optional<DepEnvironment> env)
+    {
+        if (env) {
+            dep_env_dir_ = env->env_dir;
+        } else {
+            dep_env_dir_ = std::nullopt;
+        }
+    }
+
     CLIPlugin::ExecuteResult CLIPlugin::run_process(
         const std::filesystem::path &executable,
-        const std::vector<std::string> &args) const
+        const std::vector<std::string> &args,
+        const std::map<std::string, std::string> &extra_env) const
     {
         auto command = executable.string();
         auto final_args = args;
+
+        // Merge build_environment with extra_env
+        auto env = build_environment();
+        for (const auto& [key, value] : extra_env) {
+            env[key] = value;
+        }
 
 #ifdef _WIN32
         // Windows lacks shebang support; map script extensions to interpreters
@@ -415,7 +559,7 @@ namespace uniconv::core
         }
 #endif
 
-        auto subprocess_result = run_subprocess(command, final_args, timeout_);
+        auto subprocess_result = run_subprocess(command, final_args, timeout_, env);
 
         ExecuteResult result;
         result.exit_code = subprocess_result.exit_code;

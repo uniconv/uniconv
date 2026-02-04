@@ -212,6 +212,41 @@ namespace uniconv::cli
         args.command = Command::Plugin;
         args.subcommand_args.insert(args.subcommand_args.begin(), "update"); });
 
+        // Plugin deps subcommand
+        auto *plugin_deps = plugin_cmd->add_subcommand("deps", "Manage plugin dependencies");
+        plugin_deps->require_subcommand(1);
+
+        auto *plugin_deps_install = plugin_deps->add_subcommand("install", "Install dependencies for a plugin");
+        plugin_deps_install->add_option("name", args.subcommand, "Plugin name")->required();
+        plugin_deps_install->callback([&args]()
+                                      {
+        args.command = Command::Plugin;
+        args.subcommand_args.insert(args.subcommand_args.begin(), "install");
+        args.subcommand_args.insert(args.subcommand_args.begin(), "deps"); });
+
+        auto *plugin_deps_check = plugin_deps->add_subcommand("check", "Check dependency status");
+        plugin_deps_check->add_option("name", args.subcommand, "Plugin name (optional, checks all if omitted)");
+        plugin_deps_check->callback([&args]()
+                                    {
+        args.command = Command::Plugin;
+        args.subcommand_args.insert(args.subcommand_args.begin(), "check");
+        args.subcommand_args.insert(args.subcommand_args.begin(), "deps"); });
+
+        auto *plugin_deps_clean = plugin_deps->add_subcommand("clean", "Remove orphaned dependency environments");
+        plugin_deps_clean->callback([&args]()
+                                    {
+        args.command = Command::Plugin;
+        args.subcommand_args.insert(args.subcommand_args.begin(), "clean");
+        args.subcommand_args.insert(args.subcommand_args.begin(), "deps"); });
+
+        auto *plugin_deps_info = plugin_deps->add_subcommand("info", "Show dependency environment details");
+        plugin_deps_info->add_option("name", args.subcommand, "Plugin name")->required();
+        plugin_deps_info->callback([&args]()
+                                   {
+        args.command = Command::Plugin;
+        args.subcommand_args.insert(args.subcommand_args.begin(), "info");
+        args.subcommand_args.insert(args.subcommand_args.begin(), "deps"); });
+
         // Update command (self-update)
         auto *update_cmd = app.add_subcommand("update", "Update uniconv to latest version");
         update_cmd->add_flag("--check", args.update_check_only, "Only check for updates, don't install");

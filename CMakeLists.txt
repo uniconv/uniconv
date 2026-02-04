@@ -89,6 +89,8 @@ add_executable(uniconv
     src/core/registry_types.h
     src/core/dependency_checker.h
     src/core/dependency_checker.cpp
+    src/core/dependency_installer.h
+    src/core/dependency_installer.cpp
     src/core/installed_plugins.h
     src/core/installed_plugins.cpp
     src/core/registry_client.h

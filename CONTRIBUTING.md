@@ -168,11 +168,11 @@ UNICONV_EXPORT UniconvResult*     uniconv_plugin_execute(const UniconvRequest* r
 UNICONV_EXPORT void               uniconv_plugin_free(void* ptr);
 ```
 
-See [`plugins/image-convert`](../plugins/image-convert/) and [`plugins/video-convert`](../plugins/video-convert/) for complete working examples.
+See [`plugins/image-convert`](https://github.com/uniconv/plugins/tree/main/image-convert) and [`plugins/video-convert`](https://github.com/uniconv/plugins/tree/main/video-convert) for complete working examples.
 
 ### Publishing a Plugin
 
-For full details on packaging, releasing, and submitting plugins to the registry, see the [Plugin Development Guide](../registry/plugins/DEVELOPMENT.md) and [Publishing Guide](../plugins/PUBLISHING.md).
+For full details on packaging, releasing, and submitting plugins to the registry, see the [Plugin Development Guide](https://github.com/uniconv/registry/blob/main/plugins/DEVELOPMENT.md) and [Publishing Guide](https://github.com/uniconv/plugins/blob/main/PUBLISHING.md).
 
 ## Submitting Changes
 

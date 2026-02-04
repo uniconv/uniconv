@@ -11,7 +11,8 @@ namespace uniconv::cli::commands
         std::shared_ptr<core::ConfigManager> config_manager)
         : plugin_manager_(std::move(plugin_manager)),
           config_manager_(std::move(config_manager)),
-          installed_(core::ConfigManager::get_default_config_dir())
+          installed_(core::ConfigManager::get_default_config_dir()),
+          dep_installer_(core::ConfigManager::get_default_config_dir() / "deps")
     {
         installed_.load();
     }
@@ -49,9 +50,13 @@ namespace uniconv::cli::commands
         {
             return update(args);
         }
+        else if (action == "deps")
+        {
+            return deps(args);
+        }
 
         std::cerr << "Unknown plugin action: " << action << "\n";
-        std::cerr << "Available actions: list, install, remove, info, search, update\n";
+        std::cerr << "Available actions: list, install, remove, info, search, update, deps\n";
         return 1;
     }
 
@@ -340,11 +345,97 @@ namespace uniconv::cli::commands
                 return 1;
             }
 
-            // Check dependencies
+            // Install dependencies
+            bool deps_failed = false;
+            std::string deps_error;
             if (!manifest->dependencies.empty())
             {
+                // Check for system dependencies first
                 auto dep_results = dep_checker_.check_all(manifest->dependencies);
-                core::DependencyChecker::print_warnings(dep_results);
+
+                // Check if any system dependencies are missing
+                for (const auto& [dep_info, check_result] : dep_results)
+                {
+                    if (dep_info.type == "system" && !check_result.satisfied)
+                    {
+                        deps_failed = true;
+                        deps_error = "Missing system dependency: " + dep_info.name;
+                        if (!check_result.install_hint.empty())
+                        {
+                            deps_error += " (hint: " + check_result.install_hint + ")";
+                        }
+                        std::cerr << "Error: " << deps_error << "\n";
+                    }
+                }
+
+                // If system deps are satisfied, install Python/Node dependencies
+                if (!deps_failed)
+                {
+                    bool has_auto_deps = false;
+                    for (const auto& dep : manifest->dependencies)
+                    {
+                        if (dep.type == "python" || dep.type == "node")
+                        {
+                            has_auto_deps = true;
+                            break;
+                        }
+                    }
+
+                    if (has_auto_deps)
+                    {
+                        if (!args.core_options.quiet)
+                        {
+                            std::cout << "Installing dependencies...\n";
+                        }
+
+                        auto progress = args.core_options.quiet ? nullptr :
+                            [](const std::string& msg) { std::cout << "  " << msg << "\n"; };
+
+                        auto install_result = dep_installer_.install_all(*manifest, progress);
+
+                        if (!install_result.success)
+                        {
+                            deps_failed = true;
+                            deps_error = install_result.message;
+                            std::cerr << "Error: Dependency installation failed: "
+                                      << install_result.message << "\n";
+                        }
+                        else if (!args.core_options.quiet && !install_result.installed.empty())
+                        {
+                            std::cout << "  " << install_result.message << "\n";
+                        }
+                    }
+                }
+            }
+
+            // If dependency installation failed, rollback
+            if (deps_failed)
+            {
+                std::cerr << "Rolling back plugin installation...\n";
+
+                // Remove copied plugin directory
+                try
+                {
+                    std::filesystem::remove_all(dest_path);
+                }
+                catch (const std::exception& e)
+                {
+                    std::cerr << "Warning: Failed to remove plugin directory: " << e.what() << "\n";
+                }
+
+                // Remove dependency environment
+                dep_installer_.remove_env(manifest->name);
+
+                if (args.core_options.json_output)
+                {
+                    nlohmann::json j;
+                    j["success"] = false;
+                    j["plugin"] = manifest->name;
+                    j["error"] = deps_error;
+                    std::cout << j.dump(2) << std::endl;
+                }
+
+                return 1;
             }
 
             if (!args.core_options.quiet)
@@ -443,16 +534,105 @@ namespace uniconv::cli::commands
             return 1;
         }
 
-        // Record installation
+        // Load manifest to get full dependency info
+        auto manifest = discovery_.load_manifest(dest_dir);
+
+        // Install dependencies
+        bool deps_failed = false;
+        std::string deps_error;
+        if (manifest && !manifest->dependencies.empty())
+        {
+            // Check for system dependencies first
+            auto dep_results = dep_checker_.check_all(manifest->dependencies);
+
+            // Check if any system dependencies are missing
+            for (const auto& [dep_info, check_result] : dep_results)
+            {
+                if (dep_info.type == "system" && !check_result.satisfied)
+                {
+                    deps_failed = true;
+                    deps_error = "Missing system dependency: " + dep_info.name;
+                    if (!check_result.install_hint.empty())
+                    {
+                        deps_error += " (hint: " + check_result.install_hint + ")";
+                    }
+                    std::cerr << "Error: " << deps_error << "\n";
+                }
+            }
+
+            // If system deps are satisfied, install Python/Node dependencies
+            if (!deps_failed)
+            {
+                bool has_auto_deps = false;
+                for (const auto& dep : manifest->dependencies)
+                {
+                    if (dep.type == "python" || dep.type == "node")
+                    {
+                        has_auto_deps = true;
+                        break;
+                    }
+                }
+
+                if (has_auto_deps)
+                {
+                    if (!args.core_options.quiet)
+                    {
+                        std::cout << "Installing dependencies...\n";
+                    }
+
+                    auto progress = args.core_options.quiet ? nullptr :
+                        [](const std::string& msg) { std::cout << "  " << msg << "\n"; };
+
+                    auto install_result = dep_installer_.install_all(*manifest, progress);
+
+                    if (!install_result.success)
+                    {
+                        deps_failed = true;
+                        deps_error = install_result.message;
+                        std::cerr << "Error: Dependency installation failed: "
+                                  << install_result.message << "\n";
+                    }
+                    else if (!args.core_options.quiet && !install_result.installed.empty())
+                    {
+                        std::cout << "  " << install_result.message << "\n";
+                    }
+                }
+            }
+        }
+
+        // If dependency installation failed, rollback
+        if (deps_failed)
+        {
+            std::cerr << "Rolling back plugin installation...\n";
+
+            // Remove extracted plugin directory
+            try
+            {
+                std::filesystem::remove_all(dest_dir);
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << "Warning: Failed to remove plugin directory: " << e.what() << "\n";
+            }
+
+            // Remove dependency environment
+            dep_installer_.remove_env(name);
+
+            if (args.core_options.json_output)
+            {
+                nlohmann::json j;
+                j["success"] = false;
+                j["plugin"] = name;
+                j["error"] = deps_error;
+                std::cout << j.dump(2) << std::endl;
+            }
+
+            return 1;
+        }
+
+        // Record installation only after successful dependency installation
         installed_.record_install(name, release->version);
         installed_.save();
-
-        // Check dependencies
-        if (!release->dependencies.empty())
-        {
-            auto dep_results = dep_checker_.check_all(release->dependencies);
-            core::DependencyChecker::print_warnings(dep_results);
-        }
 
         if (!args.core_options.quiet)
         {
@@ -593,6 +773,15 @@ namespace uniconv::cli::commands
         // Update installed.json
         installed_.record_remove(name);
         installed_.save();
+
+        // Remove dependency environment
+        if (dep_installer_.remove_env(name))
+        {
+            if (!args.core_options.quiet)
+            {
+                std::cout << "Removed dependency environment for: " << name << "\n";
+            }
+        }
 
         if (!args.core_options.quiet)
         {
@@ -977,6 +1166,282 @@ namespace uniconv::cli::commands
             return {arg.substr(0, at_pos), arg.substr(at_pos + 1)};
         }
         return {arg, std::nullopt};
+    }
+
+    int PluginCommand::deps(const ParsedArgs &args)
+    {
+        // deps subcommand has sub-actions
+        if (args.subcommand_args.size() < 2)
+        {
+            std::cerr << "Usage: uniconv plugin deps <action> [plugin-name]\n";
+            std::cerr << "Actions: install, check, clean, info\n";
+            return 1;
+        }
+
+        const auto &action = args.subcommand_args[1];
+
+        if (action == "install")
+        {
+            return deps_install(args);
+        }
+        else if (action == "check")
+        {
+            return deps_check(args);
+        }
+        else if (action == "clean")
+        {
+            return deps_clean(args);
+        }
+        else if (action == "info")
+        {
+            return deps_info(args);
+        }
+
+        std::cerr << "Unknown deps action: " << action << "\n";
+        std::cerr << "Available actions: install, check, clean, info\n";
+        return 1;
+    }
+
+    int PluginCommand::deps_install(const ParsedArgs &args)
+    {
+        if (args.subcommand.empty())
+        {
+            std::cerr << "Usage: uniconv plugin deps install <plugin-name>\n";
+            return 1;
+        }
+
+        const auto &name = args.subcommand;
+
+        // Find plugin
+        auto plugin_dir = find_plugin_dir(name);
+        if (!plugin_dir)
+        {
+            std::cerr << "Error: Plugin not found: " << name << "\n";
+            return 1;
+        }
+
+        auto manifest = discovery_.load_manifest(*plugin_dir);
+        if (!manifest)
+        {
+            std::cerr << "Error: Could not load manifest for: " << name << "\n";
+            return 1;
+        }
+
+        if (manifest->dependencies.empty())
+        {
+            if (!args.core_options.quiet)
+            {
+                std::cout << "Plugin has no dependencies\n";
+            }
+            return 0;
+        }
+
+        if (!args.core_options.quiet)
+        {
+            std::cout << "Installing dependencies for " << name << "...\n";
+        }
+
+        auto progress = args.core_options.quiet ? nullptr :
+            [](const std::string& msg) { std::cout << "  " << msg << "\n"; };
+
+        auto result = dep_installer_.install_all(*manifest, progress);
+
+        if (args.core_options.json_output)
+        {
+            std::cout << result.to_json().dump(2) << std::endl;
+        }
+        else if (!args.core_options.quiet)
+        {
+            std::cout << result.message << "\n";
+        }
+
+        return result.success ? 0 : 1;
+    }
+
+    int PluginCommand::deps_check(const ParsedArgs &args)
+    {
+        // If plugin name specified, check that plugin only
+        std::vector<std::string> plugins_to_check;
+
+        if (!args.subcommand.empty())
+        {
+            plugins_to_check.push_back(args.subcommand);
+        }
+        else
+        {
+            // Check all installed plugins
+            auto manifests = discovery_.discover_all();
+            for (const auto& m : manifests)
+            {
+                plugins_to_check.push_back(m.name);
+            }
+        }
+
+        if (plugins_to_check.empty())
+        {
+            if (!args.core_options.quiet)
+            {
+                std::cout << "No plugins installed\n";
+            }
+            return 0;
+        }
+
+        nlohmann::json json_results = nlohmann::json::array();
+        int unsatisfied = 0;
+
+        for (const auto& name : plugins_to_check)
+        {
+            auto plugin_dir = find_plugin_dir(name);
+            if (!plugin_dir) continue;
+
+            auto manifest = discovery_.load_manifest(*plugin_dir);
+            if (!manifest) continue;
+
+            auto check = dep_installer_.check_deps(*manifest);
+
+            if (args.core_options.json_output)
+            {
+                nlohmann::json j;
+                j["plugin"] = name;
+                j["satisfied"] = check.satisfied;
+                j["missing"] = check.missing;
+                j["present"] = check.present;
+                json_results.push_back(j);
+            }
+            else
+            {
+                std::cout << name << ": ";
+                if (check.satisfied)
+                {
+                    std::cout << "OK";
+                    if (!check.present.empty())
+                    {
+                        std::cout << " (" << check.present.size() << " deps)";
+                    }
+                }
+                else
+                {
+                    std::cout << "MISSING: ";
+                    for (size_t i = 0; i < check.missing.size(); ++i)
+                    {
+                        if (i > 0) std::cout << ", ";
+                        std::cout << check.missing[i];
+                    }
+                    ++unsatisfied;
+                }
+                std::cout << "\n";
+            }
+        }
+
+        if (args.core_options.json_output)
+        {
+            std::cout << json_results.dump(2) << std::endl;
+        }
+
+        return unsatisfied > 0 ? 1 : 0;
+    }
+
+    int PluginCommand::deps_clean(const ParsedArgs &args)
+    {
+        // Get list of installed plugins
+        auto manifests = discovery_.discover_all();
+        std::vector<std::string> installed_names;
+        for (const auto& m : manifests)
+        {
+            installed_names.push_back(m.name);
+        }
+
+        auto removed = dep_installer_.clean_orphaned(installed_names);
+
+        if (args.core_options.json_output)
+        {
+            nlohmann::json j;
+            j["removed"] = removed;
+            j["count"] = removed.size();
+            std::cout << j.dump(2) << std::endl;
+        }
+        else if (!args.core_options.quiet)
+        {
+            if (removed.empty())
+            {
+                std::cout << "No orphaned dependency environments found\n";
+            }
+            else
+            {
+                std::cout << "Removed " << removed.size() << " orphaned environment(s):\n";
+                for (const auto& name : removed)
+                {
+                    std::cout << "  " << name << "\n";
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    int PluginCommand::deps_info(const ParsedArgs &args)
+    {
+        if (args.subcommand.empty())
+        {
+            std::cerr << "Usage: uniconv plugin deps info <plugin-name>\n";
+            return 1;
+        }
+
+        const auto &name = args.subcommand;
+
+        auto env = dep_installer_.get_env(name);
+        if (!env)
+        {
+            std::cerr << "Error: No dependency environment found for: " << name << "\n";
+            return 1;
+        }
+
+        if (args.core_options.json_output)
+        {
+            nlohmann::json j;
+            j["plugin"] = name;
+            j["env_dir"] = env->env_dir.string();
+            j["has_python"] = env->has_python_env();
+            j["has_node"] = env->has_node_env();
+            j["dependencies"] = nlohmann::json::array();
+            for (const auto& dep : env->dependencies)
+            {
+                j["dependencies"].push_back(dep.to_json());
+            }
+            std::cout << j.dump(2) << std::endl;
+        }
+        else
+        {
+            std::cout << "Plugin:     " << name << "\n";
+            std::cout << "Env Dir:    " << env->env_dir << "\n";
+            std::cout << "Python:     " << (env->has_python_env() ? "Yes" : "No") << "\n";
+            if (env->has_python_env())
+            {
+                std::cout << "  Venv:     " << env->python_dir() << "\n";
+                std::cout << "  Python:   " << env->python_bin() << "\n";
+            }
+            std::cout << "Node:       " << (env->has_node_env() ? "Yes" : "No") << "\n";
+            if (env->has_node_env())
+            {
+                std::cout << "  Modules:  " << env->node_dir() / "node_modules" << "\n";
+            }
+
+            if (!env->dependencies.empty())
+            {
+                std::cout << "\nInstalled dependencies:\n";
+                for (const auto& dep : env->dependencies)
+                {
+                    std::cout << "  [" << dep.type << "] " << dep.name;
+                    if (!dep.version.empty())
+                    {
+                        std::cout << " (" << dep.version << ")";
+                    }
+                    std::cout << "\n";
+                }
+            }
+        }
+
+        return 0;
     }
 
 } // namespace uniconv::cli::commands

@@ -3,6 +3,7 @@
 #include "cli/parser.h"
 #include "core/config_manager.h"
 #include "core/dependency_checker.h"
+#include "core/dependency_installer.h"
 #include "core/installed_plugins.h"
 #include "core/plugin_discovery.h"
 #include "core/plugin_manager.h"
@@ -42,12 +43,20 @@ public:
     // Update plugin(s)
     int update(const ParsedArgs& args);
 
+    // Manage plugin dependencies
+    int deps(const ParsedArgs& args);
+    int deps_install(const ParsedArgs& args);
+    int deps_check(const ParsedArgs& args);
+    int deps_clean(const ParsedArgs& args);
+    int deps_info(const ParsedArgs& args);
+
 private:
     std::shared_ptr<core::PluginManager> plugin_manager_;
     std::shared_ptr<core::ConfigManager> config_manager_;
     core::PluginDiscovery discovery_;
     core::InstalledPlugins installed_;
     core::DependencyChecker dep_checker_;
+    core::DependencyInstaller dep_installer_;
 
     // List all plugins available in the registry
     int list_registry(const ParsedArgs& args);

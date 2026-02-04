@@ -4,9 +4,14 @@
 #include "plugins/plugin_interface.h"
 #include <chrono>
 #include <filesystem>
+#include <map>
 #include <memory>
+#include <optional>
 
 namespace uniconv::core {
+
+// Forward declaration
+struct DepEnvironment;
 
 // CLI Plugin wrapper - adapts external CLI executable to IPlugin interface
 class CLIPlugin : public plugins::IPlugin {
@@ -25,15 +30,22 @@ public:
     // Set execution timeout (default: 5 minutes)
     void set_timeout(std::chrono::seconds timeout) { timeout_ = timeout; }
 
+    // Set the dependency environment for this plugin
+    void set_dep_environment(std::optional<DepEnvironment> env);
+
 private:
     PluginManifest manifest_;
     std::chrono::seconds timeout_{300};
+    std::optional<std::filesystem::path> dep_env_dir_;
 
     // Resolve the full path to the executable
     std::filesystem::path resolve_executable() const;
 
     // Build command line arguments for the plugin
     std::vector<std::string> build_arguments(const Request& request) const;
+
+    // Build environment variables for plugin execution (PATH, PYTHONPATH, etc.)
+    std::map<std::string, std::string> build_environment() const;
 
     // Execute the plugin and capture output
     struct ExecuteResult {
@@ -43,7 +55,8 @@ private:
         bool timed_out = false;
     };
     ExecuteResult run_process(const std::filesystem::path& executable,
-                              const std::vector<std::string>& args) const;
+                              const std::vector<std::string>& args,
+                              const std::map<std::string, std::string>& env = {}) const;
 
     // Parse JSON result from plugin stdout
     Result parse_result(const Request& request, const ExecuteResult& exec_result) const;

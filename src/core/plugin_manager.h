@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/types.h"
+#include "core/dependency_installer.h"
 #include "core/plugin_discovery.h"
 #include "plugins/plugin_interface.h"
 #include <filesystem>
@@ -67,6 +68,7 @@ namespace uniconv::core
         std::vector<std::unique_ptr<plugins::IPlugin>> plugins_;
         std::map<std::string, std::string> defaults_; // target → plugin_scope
         PluginDiscovery discovery_;
+        DependencyInstaller dep_installer_;
         bool external_loaded_ = false;
     };
 
