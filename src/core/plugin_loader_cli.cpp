@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdio>
+#include <utility>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -27,7 +28,6 @@ namespace uniconv::core
         }
 
 // Simple subprocess execution with timeout support
-#ifndef _WIN32
         struct SubprocessResult
         {
             int exit_code = -1;
@@ -36,6 +36,7 @@ namespace uniconv::core
             bool timed_out = false;
         };
 
+#ifndef _WIN32
         SubprocessResult run_subprocess(const std::string &command,
                                         const std::vector<std::string> &args,
                                         std::chrono::seconds timeout)
@@ -540,7 +541,7 @@ namespace uniconv::core
 
     bool CLIPluginLoader::is_cli_plugin(const PluginManifest &manifest)
     {
-        return manifest.interface == PluginInterface::CLI && !manifest.executable.empty();
+        return manifest.iface == PluginInterface::CLI && !manifest.executable.empty();
     }
 
 } // namespace uniconv::core

@@ -387,7 +387,7 @@ namespace uniconv::core
 
     bool NativePluginLoader::is_native_plugin(const PluginManifest &manifest)
     {
-        return manifest.interface == PluginInterface::Native && !manifest.library.empty();
+        return manifest.iface == PluginInterface::Native && !manifest.library.empty();
     }
 
     const char *NativePluginLoader::library_extension()

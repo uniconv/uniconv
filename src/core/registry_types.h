@@ -35,7 +35,7 @@ namespace uniconv::core
     {
         std::string version;
         std::string uniconv_compat; // e.g., ">=0.3.0"
-        std::string interface;      // "cli" or "native"
+        std::string iface;          // "cli" or "native"
         std::vector<Dependency> dependencies;
         std::map<std::string, RegistryArtifact> artifacts; // platform -> artifact
 
@@ -44,7 +44,7 @@ namespace uniconv::core
             nlohmann::json j;
             j["version"] = version;
             j["uniconv_compat"] = uniconv_compat;
-            j["interface"] = interface;
+            j["interface"] = iface;
 
             if (!dependencies.empty())
             {
@@ -69,7 +69,7 @@ namespace uniconv::core
             RegistryRelease r;
             r.version = j.at("version").get<std::string>();
             r.uniconv_compat = j.value("uniconv_compat", "");
-            r.interface = j.value("interface", "cli");
+            r.iface = j.value("interface", "cli");
 
             if (j.contains("dependencies") && j.at("dependencies").is_array())
             {
@@ -155,7 +155,7 @@ namespace uniconv::core
         std::vector<std::string> keywords;
         std::string latest;
         std::string author;
-        std::string interface;
+        std::string iface;
 
         nlohmann::json to_json() const
         {
@@ -165,7 +165,7 @@ namespace uniconv::core
                 {"keywords", keywords},
                 {"latest", latest},
                 {"author", author},
-                {"interface", interface}};
+                {"interface", iface}};
         }
 
         static RegistryIndexEntry from_json(const nlohmann::json &j)
@@ -175,7 +175,7 @@ namespace uniconv::core
             e.description = j.value("description", "");
             e.latest = j.value("latest", "");
             e.author = j.value("author", "");
-            e.interface = j.value("interface", "");
+            e.iface = j.value("interface", "");
 
             if (j.contains("keywords"))
             {

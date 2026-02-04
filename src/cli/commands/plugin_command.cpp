@@ -86,7 +86,7 @@ namespace uniconv::cli::commands
                 auto info = m.to_plugin_info();
                 auto pj = info.to_json();
                 pj["path"] = m.plugin_dir.string();
-                pj["interface"] = core::plugin_interface_to_string(m.interface);
+                pj["interface"] = core::plugin_interface_to_string(m.iface);
                 pj["source"] = installed_.is_registry_installed(m.name) ? "registry" : "local";
                 j.push_back(pj);
             }
@@ -218,7 +218,7 @@ namespace uniconv::cli::commands
             std::cout << std::left
                       << std::setw(25) << name_col
                       << std::setw(10) << entry.latest
-                      << std::setw(12) << entry.interface
+                      << std::setw(12) << entry.iface
                       << desc << "\n";
         }
 
@@ -690,11 +690,11 @@ namespace uniconv::cli::commands
             std::cout << "Scope:       " << manifest->scope << "\n";
             std::cout << "Version:     " << manifest->version << "\n";
             std::cout << "Description: " << manifest->description << "\n";
-            std::cout << "Type:        " << core::plugin_interface_to_string(manifest->interface) << "\n";
+            std::cout << "Type:        " << core::plugin_interface_to_string(manifest->iface) << "\n";
             std::cout << "Source:      " << source << "\n";
             std::cout << "Path:        " << *plugin_dir << "\n";
 
-            if (manifest->interface == core::PluginInterface::CLI)
+            if (manifest->iface == core::PluginInterface::CLI)
             {
                 std::cout << "Executable:  " << manifest->executable << "\n";
             }

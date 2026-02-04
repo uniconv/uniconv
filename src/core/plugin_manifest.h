@@ -119,7 +119,7 @@ namespace uniconv::core
         std::vector<DataType> output_types;
 
         // Interface
-        PluginInterface interface = PluginInterface::CLI;
+        PluginInterface iface = PluginInterface::CLI;
         std::string executable; // For CLI: executable name or path
         std::string library;    // For Native: library filename
 
@@ -148,7 +148,7 @@ namespace uniconv::core
             j["description"] = description;
             j["targets"] = targets;
             j["input_formats"] = input_formats;
-            j["interface"] = plugin_interface_to_string(interface);
+            j["interface"] = plugin_interface_to_string(iface);
             if (!executable.empty())
                 j["executable"] = executable;
             if (!library.empty())
@@ -196,7 +196,7 @@ namespace uniconv::core
 
             // Interface
             auto iface_str = j.value("interface", "cli");
-            m.interface = plugin_interface_from_string(iface_str).value_or(PluginInterface::CLI);
+            m.iface = plugin_interface_from_string(iface_str).value_or(PluginInterface::CLI);
 
             m.executable = j.value("executable", "");
             m.library = j.value("library", "");

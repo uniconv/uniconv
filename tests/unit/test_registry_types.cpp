@@ -147,7 +147,7 @@ TEST(RegistryReleaseTest, RoundTrip)
     RegistryRelease r;
     r.version = "1.2.0";
     r.uniconv_compat = ">=0.3.0";
-    r.interface = "cli";
+    r.iface = "cli";
 
     Dependency dep;
     dep.name = "python3";
@@ -164,7 +164,7 @@ TEST(RegistryReleaseTest, RoundTrip)
 
     EXPECT_EQ(r.version, r2.version);
     EXPECT_EQ(r.uniconv_compat, r2.uniconv_compat);
-    EXPECT_EQ(r.interface, r2.interface);
+    EXPECT_EQ(r.iface, r2.iface);
     ASSERT_EQ(r2.dependencies.size(), 1);
     ASSERT_EQ(r2.artifacts.size(), 1);
     EXPECT_EQ(r2.artifacts.at("any").url, a.url);
@@ -182,7 +182,7 @@ TEST(RegistryPluginEntryTest, RoundTrip)
 
     RegistryRelease r;
     r.version = "1.0.0";
-    r.interface = "cli";
+    r.iface = "cli";
     e.releases.push_back(r);
 
     auto j = e.to_json();
@@ -210,7 +210,7 @@ TEST(RegistryIndexTest, RoundTrip)
     entry.keywords = {"image"};
     entry.latest = "1.0.0";
     entry.author = "somedev";
-    entry.interface = "cli";
+    entry.iface = "cli";
     idx.plugins.push_back(entry);
 
     auto j = idx.to_json();
