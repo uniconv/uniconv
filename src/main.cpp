@@ -4,6 +4,7 @@
 #include "cli/commands/preset_command.h"
 #include "cli/commands/plugin_command.h"
 #include "cli/commands/config_command.h"
+#include "cli/commands/update_command.h"
 #include "cli/pipeline_parser.h"
 #include "core/engine.h"
 #include "core/preset_manager.h"
@@ -93,6 +94,12 @@ int main(int argc, char **argv)
         case cli::Command::Config:
         {
             cli::commands::ConfigCommand cmd(config_manager);
+            return cmd.execute(args);
+        }
+
+        case cli::Command::Update:
+        {
+            cli::commands::UpdateCommand cmd;
             return cmd.execute(args);
         }
 

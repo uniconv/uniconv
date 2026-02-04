@@ -74,6 +74,8 @@ add_executable(uniconv
     src/cli/commands/plugin_command.cpp
     src/cli/commands/config_command.h
     src/cli/commands/config_command.cpp
+    src/cli/commands/update_command.h
+    src/cli/commands/update_command.cpp
     src/utils/file_utils.h
     src/utils/file_utils.cpp
     src/utils/string_utils.h

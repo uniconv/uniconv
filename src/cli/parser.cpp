@@ -212,6 +212,12 @@ namespace uniconv::cli
         args.command = Command::Plugin;
         args.subcommand_args.insert(args.subcommand_args.begin(), "update"); });
 
+        // Update command (self-update)
+        auto *update_cmd = app.add_subcommand("update", "Update uniconv to latest version");
+        update_cmd->add_flag("--check", args.update_check_only, "Only check for updates, don't install");
+        update_cmd->callback([&args]()
+                             { args.command = Command::Update; });
+
         // Config command (hidden — not yet implemented)
         auto *config_cmd = app.add_subcommand("config", "Manage configuration");
         config_cmd->group("");

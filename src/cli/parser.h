@@ -18,7 +18,8 @@ enum class Command {
     Config,        // uniconv config <subcommand>
     Interactive,   // No command, enter interactive mode
     Help,          // Show help
-    Version        // Show version
+    Version,       // Show version
+    Update         // uniconv update
 };
 
 // Parsed arguments structure
@@ -40,6 +41,7 @@ struct ParsedArgs {
     bool no_interactive = false;
     bool watch = false;
     bool list_registry = false;
+    bool update_check_only = false;
     std::optional<std::string> preset;
 };
 
