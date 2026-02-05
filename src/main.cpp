@@ -10,14 +10,27 @@
 #include "core/preset_manager.h"
 #include "core/config_manager.h"
 #include "core/pipeline_executor.h"
+#include "core/watcher.h"
 #include "core/output/output.h"
 #include "core/output/console_output.h"
 #include "core/output/json_output.h"
 #include <uniconv/version.h>
+#include <csignal>
 #include <iostream>
 #include <memory>
 
 using namespace uniconv;
+
+// Global watcher pointer for signal handling
+static core::Watcher *g_watcher = nullptr;
+
+void signal_handler(int)
+{
+    if (g_watcher)
+    {
+        g_watcher->stop();
+    }
+}
 
 std::shared_ptr<core::output::IOutput> create_output(const cli::ParsedArgs& args) {
     if (args.core_options.json_output) {
@@ -124,52 +137,82 @@ int main(int argc, char **argv)
         case cli::Command::Pipeline:
         {
             cli::PipelineParser pipeline_parser;
-            // Join all sources with spaces to get the full pipeline string
-            std::string full_pipeline;
-            for (size_t i = 0; i < args.sources.size(); ++i)
-            {
-                if (i > 0)
-                    full_pipeline += " ";
-                full_pipeline += args.sources[i];
-            }
 
-            // Extract source (before first |) and pipeline (after first |)
-            std::filesystem::path source;
-            std::string pipeline_str;
-            auto pipe_pos = full_pipeline.find('|');
-            if (pipe_pos != std::string::npos)
-            {
-                // Source is everything before |, trimmed
-                std::string source_str = full_pipeline.substr(0, pipe_pos);
-                // Trim whitespace
-                size_t start = source_str.find_first_not_of(" \t");
-                size_t end = source_str.find_last_not_of(" \t");
-                if (start != std::string::npos)
-                {
-                    source = source_str.substr(start, end - start + 1);
-                }
-                // Pipeline is everything after |
-                pipeline_str = full_pipeline.substr(pipe_pos + 1);
-            }
-            else
-            {
-                // No pipe found - treat entire thing as source with empty pipeline
-                source = full_pipeline;
-                pipeline_str = "";
-            }
+            // Source comes from args.input
+            std::filesystem::path source = args.input.value_or("");
+            std::string pipeline_str = args.pipeline;
 
             if (source.empty())
             {
-                output->error("Pipeline error: No source file specified");
+                output->error("No input file or directory specified");
+                output->info("Usage: uniconv <source> \"<pipeline>\"");
                 return 1;
             }
 
             if (pipeline_str.empty())
             {
-                output->error("Pipeline error: No pipeline targets specified after '|'");
+                output->error("No pipeline specified");
+                output->info("Usage: uniconv <source> \"<pipeline>\"");
                 return 1;
             }
 
+            // Watch mode
+            if (args.watch)
+            {
+                if (!std::filesystem::is_directory(source))
+                {
+                    output->error("Watch mode requires a directory as source");
+                    return 1;
+                }
+
+                output->info("Watching directory: " + source.string());
+                output->info("Pipeline: " + pipeline_str);
+                output->info("Press Ctrl+C to stop");
+
+                core::Watcher watcher;
+                g_watcher = &watcher;
+
+                // Set up signal handlers
+                std::signal(SIGINT, signal_handler);
+                std::signal(SIGTERM, signal_handler);
+
+                watcher.set_callback([&](const std::filesystem::path &file_path, core::FileEvent event)
+                                     {
+                    std::string event_str = (event == core::FileEvent::Created) ? "New" : "Modified";
+                    output->info(event_str + " file: " + file_path.filename().string());
+
+                    // Parse and execute pipeline for this file
+                    auto file_parse_result = pipeline_parser.parse(pipeline_str, file_path, args.core_options);
+                    if (!file_parse_result.success)
+                    {
+                        output->error("  Pipeline error: " + file_parse_result.error);
+                        return;
+                    }
+
+                    core::PipelineExecutor executor(engine);
+                    auto result = executor.execute(file_parse_result.pipeline);
+
+                    if (result.success)
+                    {
+                        output->success("  Completed");
+                        for (const auto &out : result.final_outputs)
+                        {
+                            output->info("    -> " + out.string());
+                        }
+                    }
+                    else if (result.error)
+                    {
+                        output->error("  Failed: " + *result.error);
+                    } });
+
+                watcher.watch(source, args.core_options.recursive);
+
+                g_watcher = nullptr;
+                output->info("Watch mode stopped");
+                return 0;
+            }
+
+            // Normal (non-watch) pipeline execution
             auto parse_result = pipeline_parser.parse(pipeline_str, source, args.core_options);
             if (!parse_result.success)
             {

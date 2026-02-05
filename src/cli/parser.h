@@ -26,8 +26,11 @@ enum class Command {
 struct ParsedArgs {
     Command command = Command::Help;
 
-    // Source files/directories
-    std::vector<std::string> sources;
+    // Input source (file or directory)
+    std::optional<std::string> input;
+
+    // Pipeline string (the transformation stages)
+    std::string pipeline;
 
     // Core options
     core::CoreOptions core_options;

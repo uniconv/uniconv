@@ -23,13 +23,13 @@ uniconv converts files between formats using an intuitive pipeline syntax. Chain
 
 ```bash
 # Convert image to ASCII art
-uniconv "photo.jpg | ascii"
+uniconv photo.jpg "ascii"
 
 # Resize video and convert to GIF
-uniconv "clip.mp4 | gif --width 480 --fps 15"
+uniconv clip.mp4 "gif --width 480 --fps 15"
 
 # Fan out: save PNG locally, copy to clipboard
-uniconv "photo.heic | tee | png, clipboard"
+uniconv photo.heic "tee | png, clipboard"
 ```
 
 ## Why uniconv?
@@ -79,19 +79,19 @@ curl -fsSL https://raw.githubusercontent.com/uniconv/uniconv/main/install.sh | b
 
 ```bash
 # Convert a HEIC photo to JPEG
-uniconv "photo.heic | jpg --quality 85"
+uniconv photo.heic "jpg --quality 85"
 
 # Convert image to ASCII art
-uniconv "photo.jpg | ascii --width 80"
+uniconv photo.jpg "ascii --width 80"
 
 # Create a GIF from video (resized, 15fps)
-uniconv "video.mp4 | gif --width 320 --fps 15"
+uniconv video.mp4 "gif --width 320 --fps 15"
 
 # Resize video to 720p
-uniconv "video.mp4 | mp4 --height 720"
+uniconv video.mp4 "mp4 --height 720"
 
 # Apply grayscale filter
-uniconv "photo.jpg | grayscale"
+uniconv photo.jpg "grayscale"
 
 # Get file info
 uniconv info photo.heic
@@ -108,20 +108,20 @@ uniconv update
 Pipelines are the core of uniconv. They describe a series of transformations applied to an input file.
 
 ```
-uniconv "<source> | <target> [options] | <target> [options] | ..."
+uniconv <source> "<target> [options] | <target> [options] | ..."
 ```
 
 ### Basics
 
 ```bash
 # Single conversion
-uniconv "photo.heic | jpg"
+uniconv photo.heic "jpg"
 
 # Chained conversions (resize then apply filter)
-uniconv "photo.jpg | png --width 800 | grayscale"
+uniconv photo.jpg "png --width 800 | grayscale"
 
 # Specify output path
-uniconv -o thumbnail.gif "video.mp4 | gif --width 320 --fps 10"
+uniconv -o thumbnail.gif video.mp4 "gif --width 320 --fps 10"
 ```
 
 ### Explicit plugin selection
@@ -130,7 +130,7 @@ When multiple plugins can handle a target, pin a specific one with `@`:
 
 ```bash
 # Use the ffmpeg plugin for mp4 conversion
-uniconv "video.mov | mp4@ffmpeg --height 720"
+uniconv video.mov "mp4@ffmpeg --height 720"
 ```
 
 ### Presets
@@ -158,10 +158,10 @@ Split a pipeline into multiple parallel branches:
 
 ```bash
 # Convert to multiple formats at once
-uniconv "photo.heic | tee | jpg, png, webp"
+uniconv photo.heic "tee | jpg, png, webp"
 
 # Different quality settings for each branch
-uniconv "photo.jpg | tee | jpg --quality 90, jpg --quality 50 --width 200"
+uniconv photo.jpg "tee | jpg --quality 90, jpg --quality 50 --width 200"
 ```
 
 ### clipboard — Copy to System Clipboard
@@ -170,16 +170,16 @@ Copy output directly to system clipboard:
 
 ```bash
 # Convert and copy image to clipboard (no file saved)
-uniconv "photo.heic | png | clipboard"
+uniconv photo.heic "png | clipboard"
 
 # Copy ASCII art to clipboard
-uniconv "photo.jpg | ascii | clipboard"
+uniconv photo.jpg "ascii | clipboard"
 
 # Save file AND copy to clipboard
-uniconv "photo.heic | png | clipboard --save"
+uniconv photo.heic "png | clipboard --save"
 
 # With explicit output path
-uniconv -o result.png "photo.heic | png | clipboard"
+uniconv -o result.png photo.heic "png | clipboard"
 ```
 
 **Behavior:**
@@ -193,11 +193,11 @@ Pass input through unchanged. Useful for matching `tee` branches when you only w
 
 ```bash
 # Convert to PNG and copy to clipboard, pass through original to save
-uniconv "photo.heic | tee | png, ascii | _, clipboard"
+uniconv photo.heic "tee | png, ascii | _, clipboard"
 # -> PNG saved to file, ASCII copied to clipboard
 
 # Skip one branch entirely
-uniconv "video.mp4 | tee | gif --width 320, _ | clipboard, _"
+uniconv video.mp4 "tee | gif --width 320, _ | clipboard, _"
 ```
 
 **Aliases:** `_`, `echo`, `bypass`, `pass`, `noop`
@@ -250,7 +250,7 @@ Want to write your own plugin? See the [Contributing Guide](CONTRIBUTING.md#writ
 ## CLI Reference
 
 ```
-uniconv [options] "<pipeline>"
+uniconv [options] <source> "<pipeline>"
 uniconv <command> [args]
 ```
 

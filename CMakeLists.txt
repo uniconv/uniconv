@@ -103,6 +103,8 @@ add_executable(uniconv
     src/core/installed_plugins.cpp
     src/core/registry_client.h
     src/core/registry_client.cpp
+    src/core/watcher.h
+    src/core/watcher.cpp
 )
 
 target_include_directories(uniconv PRIVATE

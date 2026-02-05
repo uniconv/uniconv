@@ -15,12 +15,14 @@ namespace uniconv::cli
         CLI::App app{"uniconv - Universal Converter & Content Intelligence Tool"};
         app.set_version_flag("-v,--version", UNICONV_VERSION);
         app.set_help_flag("-h,--help", "Show help");
-        app.allow_extras(true); // Allow remaining args for pipeline
+        app.positionals_at_end(true);
         app.footer("\nPipeline Examples:\n"
-                   "  uniconv \"photo.heic | jpg\"                    # Convert HEIC to JPG\n"
-                   "  uniconv \"photo.heic | jpg --quality 90\"       # With quality option\n"
-                   "  uniconv \"photo.heic | jpg | tee | gdrive, s3\" # Multi-stage with branching\n"
-                   "  uniconv -o out.png \"photo.jpg | png\"          # Specify output path");
+                   "  uniconv photo.heic \"jpg\"                      # Convert HEIC to JPG\n"
+                   "  uniconv photo.heic \"jpg --quality 90\"         # With quality option\n"
+                   "  uniconv photo.heic \"jpg | ascii\"              # Multi-stage pipeline\n"
+                   "  uniconv -o out.png photo.heic \"png\"           # Specify output path\n"
+                   "  uniconv --watch ./incoming \"jpg | ascii\"      # Watch directory\n"
+                   "  uniconv -o ./out -r ./photos \"jpg\"            # Batch convert directory");
 
         setup_main_options(app, args);
         setup_subcommands(app, args);
@@ -28,13 +30,6 @@ namespace uniconv::cli
         try
         {
             app.parse(argc, argv);
-
-            // Handle remaining args as sources (for pipeline)
-            auto remaining = app.remaining();
-            for (const auto &r : remaining)
-            {
-                args.sources.push_back(r);
-            }
 
             // Determine command
             args.command = determine_command(app, args);
@@ -67,10 +62,12 @@ namespace uniconv::cli
     {
         CLI::App app{"uniconv - Universal Converter & Content Intelligence Tool"};
         app.footer("\nPipeline Examples:\n"
-                   "  uniconv \"photo.heic | jpg\"                    # Convert HEIC to JPG\n"
-                   "  uniconv \"photo.heic | jpg --quality 90\"       # With quality option\n"
-                   "  uniconv \"photo.heic | jpg | tee | gdrive, s3\" # Multi-stage with branching\n"
-                   "  uniconv -o out.png \"photo.jpg | png\"          # Specify output path");
+                   "  uniconv photo.heic \"jpg\"                      # Convert HEIC to JPG\n"
+                   "  uniconv photo.heic \"jpg --quality 90\"         # With quality option\n"
+                   "  uniconv photo.heic \"jpg | ascii\"              # Multi-stage pipeline\n"
+                   "  uniconv -o out.png photo.heic \"png\"           # Specify output path\n"
+                   "  uniconv --watch ./incoming \"jpg | ascii\"      # Watch directory\n"
+                   "  uniconv -o ./out -r ./photos \"jpg\"            # Batch convert directory");
         ParsedArgs dummy;
         setup_main_options(app, dummy);
         setup_subcommands(app, dummy);
@@ -91,7 +88,7 @@ namespace uniconv::cli
         app.add_flag("-r,--recursive", args.core_options.recursive, "Process directories recursively");
 
         // Interactive mode
-        app.add_flag("-i,--interactive", args.interactive, "Force interactive mode");
+        app.add_flag("--interactive", args.interactive, "Force interactive mode");
         app.add_flag("--no-interactive", args.no_interactive, "Disable interactive mode");
 
         // Watch mode
@@ -99,6 +96,12 @@ namespace uniconv::cli
 
         // Preset
         app.add_option("-p,--preset", args.preset, "Use preset");
+
+        // Positional arguments: <source> "<pipeline>"
+        app.add_option("input", args.input, "Input file or directory")
+            ->type_name("FILE|DIR");
+        app.add_option("pipeline", args.pipeline, "Pipeline transformation stages")
+            ->type_name("PIPELINE");
     }
 
     void CliParser::setup_subcommands(CLI::App &app, ParsedArgs &args)
@@ -277,21 +280,26 @@ namespace uniconv::cli
             return args.command;
         }
 
-        // Check for pipeline syntax
-        // Pipeline syntax: sources contain " | " (pipe operator)
-        if (!args.sources.empty() && PipelineParser::is_pipeline_syntax(args.sources))
+        // Pipeline command: have input and pipeline string
+        if (args.input.has_value() && !args.pipeline.empty())
         {
             return Command::Pipeline;
         }
 
-        // Check for preset usage
-        if (args.preset.has_value() && !args.sources.empty())
+        // Preset usage with input
+        if (args.preset.has_value() && args.input.has_value())
         {
             return Command::Pipeline;
         }
 
-        // If sources provided, enter interactive mode
-        if (!args.sources.empty() && !args.no_interactive)
+        // Watch mode with input (directory)
+        if (args.watch && args.input.has_value())
+        {
+            return Command::Pipeline;
+        }
+
+        // If input provided but no pipeline, enter interactive mode
+        if (args.input.has_value() && !args.no_interactive)
         {
             return Command::Interactive;
         }
