@@ -45,13 +45,6 @@ public:
     // Update plugin(s)
     int update(const ParsedArgs& args);
 
-    // Manage plugin dependencies
-    int deps(const ParsedArgs& args);
-    int deps_install(const ParsedArgs& args);
-    int deps_check(const ParsedArgs& args);
-    int deps_clean(const ParsedArgs& args);
-    int deps_info(const ParsedArgs& args);
-
 private:
     std::shared_ptr<core::PluginManager> plugin_manager_;
     std::shared_ptr<core::ConfigManager> config_manager_;

@@ -168,6 +168,10 @@ namespace uniconv::cli
         // Plugin command (manage)
         auto *plugin_cmd = app.add_subcommand("plugin", "Manage plugins");
         plugin_cmd->require_subcommand(1);
+        plugin_cmd->footer("\nExamples:\n"
+                           "  uniconv plugin list              # List installed plugins\n"
+                           "  uniconv plugin install image-convert  # Install from registry\n"
+                           "  uniconv plugin remove image-convert   # Remove a plugin");
 
         auto *plugin_list = plugin_cmd->add_subcommand("list", "List installed plugins");
         plugin_list->add_flag("--registry", args.list_registry, "List all plugins available in the registry");
@@ -228,50 +232,6 @@ namespace uniconv::cli
                                 {
         args.command = Command::Plugin;
         args.subcommand_args.insert(args.subcommand_args.begin(), "update"); });
-
-        // Plugin deps subcommand
-        auto *plugin_deps = plugin_cmd->add_subcommand("deps", "Manage plugin dependencies");
-        plugin_deps->require_subcommand(1);
-
-        auto *plugin_deps_install = plugin_deps->add_subcommand("install", "Install dependencies for a plugin");
-        plugin_deps_install->add_option("name", args.subcommand, "Plugin name")->required();
-        plugin_deps_install->footer("\nExamples:\n"
-                                    "  uniconv plugin deps install image-convert");
-        plugin_deps_install->callback([&args]()
-                                      {
-        args.command = Command::Plugin;
-        args.subcommand_args.insert(args.subcommand_args.begin(), "install");
-        args.subcommand_args.insert(args.subcommand_args.begin(), "deps"); });
-
-        auto *plugin_deps_check = plugin_deps->add_subcommand("check", "Check dependency status");
-        plugin_deps_check->add_option("name", args.subcommand, "Plugin name (optional, checks all if omitted)");
-        plugin_deps_check->footer("\nExamples:\n"
-                                  "  uniconv plugin deps check                # Check all plugins\n"
-                                  "  uniconv plugin deps check image-convert  # Check specific plugin");
-        plugin_deps_check->callback([&args]()
-                                    {
-        args.command = Command::Plugin;
-        args.subcommand_args.insert(args.subcommand_args.begin(), "check");
-        args.subcommand_args.insert(args.subcommand_args.begin(), "deps"); });
-
-        auto *plugin_deps_clean = plugin_deps->add_subcommand("clean", "Remove orphaned dependency environments");
-        plugin_deps_clean->footer("\nExamples:\n"
-                                  "  uniconv plugin deps clean");
-        plugin_deps_clean->callback([&args]()
-                                    {
-        args.command = Command::Plugin;
-        args.subcommand_args.insert(args.subcommand_args.begin(), "clean");
-        args.subcommand_args.insert(args.subcommand_args.begin(), "deps"); });
-
-        auto *plugin_deps_info = plugin_deps->add_subcommand("info", "Show dependency environment details");
-        plugin_deps_info->add_option("name", args.subcommand, "Plugin name")->required();
-        plugin_deps_info->footer("\nExamples:\n"
-                                 "  uniconv plugin deps info image-convert");
-        plugin_deps_info->callback([&args]()
-                                   {
-        args.command = Command::Plugin;
-        args.subcommand_args.insert(args.subcommand_args.begin(), "info");
-        args.subcommand_args.insert(args.subcommand_args.begin(), "deps"); });
 
         // Update command (self-update)
         auto *update_cmd = app.add_subcommand("update", "Update uniconv to latest version");

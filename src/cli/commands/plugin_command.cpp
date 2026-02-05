@@ -53,13 +53,9 @@ namespace uniconv::cli::commands
         {
             return update(args);
         }
-        else if (action == "deps")
-        {
-            return deps(args);
-        }
 
         output_->error("Unknown plugin action: " + action);
-        output_->info("Available actions: list, install, remove, info, search, update, deps");
+        output_->info("Available actions: list, install, remove, info, search, update");
         return 1;
     }
 
@@ -854,13 +850,32 @@ namespace uniconv::cli::commands
 
         if (!manifest->dependencies.empty())
         {
+            // Check dependency status
+            auto dep_status = dep_installer_.check_deps(*manifest);
+
             text << "\n\nDependencies:";
+            if (dep_status.satisfied)
+            {
+                text << " (all satisfied)";
+            }
+            else
+            {
+                text << " (MISSING: " << dep_status.missing.size() << ")";
+            }
+
             for (const auto &dep : manifest->dependencies)
             {
+                bool is_missing = std::find(dep_status.missing.begin(),
+                                            dep_status.missing.end(),
+                                            dep.name) != dep_status.missing.end();
                 text << "\n  [" << dep.type << "] " << dep.name;
                 if (dep.version)
                     text << " " << *dep.version;
+                text << (is_missing ? " - MISSING" : " - OK");
             }
+
+            j["deps_satisfied"] = dep_status.satisfied;
+            j["deps_missing"] = dep_status.missing;
         }
 
         output_->data(j, text.str());
@@ -1059,252 +1074,6 @@ namespace uniconv::cli::commands
             return {arg.substr(0, at_pos), arg.substr(at_pos + 1)};
         }
         return {arg, std::nullopt};
-    }
-
-    int PluginCommand::deps(const ParsedArgs &args)
-    {
-        // deps subcommand has sub-actions
-        if (args.subcommand_args.size() < 2)
-        {
-            output_->error("Usage: uniconv plugin deps <action> [plugin-name]");
-            output_->info("Actions: install, check, clean, info");
-            return 1;
-        }
-
-        const auto &action = args.subcommand_args[1];
-
-        if (action == "install")
-        {
-            return deps_install(args);
-        }
-        else if (action == "check")
-        {
-            return deps_check(args);
-        }
-        else if (action == "clean")
-        {
-            return deps_clean(args);
-        }
-        else if (action == "info")
-        {
-            return deps_info(args);
-        }
-
-        output_->error("Unknown deps action: " + action);
-        output_->info("Available actions: install, check, clean, info");
-        return 1;
-    }
-
-    int PluginCommand::deps_install(const ParsedArgs &args)
-    {
-        if (args.subcommand.empty())
-        {
-            output_->error("Usage: uniconv plugin deps install <plugin-name>");
-            return 1;
-        }
-
-        const auto &name = args.subcommand;
-
-        // Find plugin
-        auto plugin_dir = find_plugin_dir(name);
-        if (!plugin_dir)
-        {
-            output_->error("Plugin not found: " + name);
-            return 1;
-        }
-
-        auto manifest = discovery_.load_manifest(*plugin_dir);
-        if (!manifest)
-        {
-            output_->error("Could not load manifest for: " + name);
-            return 1;
-        }
-
-        if (manifest->dependencies.empty())
-        {
-            output_->info("Plugin has no dependencies");
-            return 0;
-        }
-
-        output_->info("Installing dependencies for " + name + "...");
-
-        std::function<void(const std::string&)> progress;
-        if (!output_->is_quiet())
-        {
-            progress = [this](const std::string& msg) { output_->info("  " + msg); };
-        }
-
-        auto result = dep_installer_.install_all(*manifest, progress);
-
-        output_->data(result.to_json(), result.message);
-
-        return result.success ? 0 : 1;
-    }
-
-    int PluginCommand::deps_check(const ParsedArgs &args)
-    {
-        // If plugin name specified, check that plugin only
-        std::vector<std::string> plugins_to_check;
-
-        if (!args.subcommand.empty())
-        {
-            plugins_to_check.push_back(args.subcommand);
-        }
-        else
-        {
-            // Check all installed plugins
-            auto manifests = discovery_.discover_all();
-            for (const auto& m : manifests)
-            {
-                plugins_to_check.push_back(m.name);
-            }
-        }
-
-        if (plugins_to_check.empty())
-        {
-            output_->info("No plugins installed");
-            return 0;
-        }
-
-        nlohmann::json json_results = nlohmann::json::array();
-        std::ostringstream text;
-        int unsatisfied = 0;
-
-        for (const auto& name : plugins_to_check)
-        {
-            auto plugin_dir = find_plugin_dir(name);
-            if (!plugin_dir) continue;
-
-            auto manifest = discovery_.load_manifest(*plugin_dir);
-            if (!manifest) continue;
-
-            auto check = dep_installer_.check_deps(*manifest);
-
-            nlohmann::json j;
-            j["plugin"] = name;
-            j["satisfied"] = check.satisfied;
-            j["missing"] = check.missing;
-            j["present"] = check.present;
-            json_results.push_back(j);
-
-            text << name << ": ";
-            if (check.satisfied)
-            {
-                text << "OK";
-                if (!check.present.empty())
-                {
-                    text << " (" << check.present.size() << " deps)";
-                }
-            }
-            else
-            {
-                text << "MISSING: ";
-                for (size_t i = 0; i < check.missing.size(); ++i)
-                {
-                    if (i > 0) text << ", ";
-                    text << check.missing[i];
-                }
-                ++unsatisfied;
-            }
-            text << "\n";
-        }
-
-        output_->data(json_results, text.str());
-        return unsatisfied > 0 ? 1 : 0;
-    }
-
-    int PluginCommand::deps_clean(const ParsedArgs & /*args*/)
-    {
-        // Get list of installed plugins
-        auto manifests = discovery_.discover_all();
-        std::vector<std::string> installed_names;
-        for (const auto& m : manifests)
-        {
-            installed_names.push_back(m.name);
-        }
-
-        auto removed = dep_installer_.clean_orphaned(installed_names);
-
-        nlohmann::json j;
-        j["removed"] = removed;
-        j["count"] = removed.size();
-
-        std::ostringstream text;
-        if (removed.empty())
-        {
-            text << "No orphaned dependency environments found";
-        }
-        else
-        {
-            text << "Removed " << removed.size() << " orphaned environment(s):";
-            for (const auto& name : removed)
-            {
-                text << "\n  " << name;
-            }
-        }
-
-        output_->data(j, text.str());
-        return 0;
-    }
-
-    int PluginCommand::deps_info(const ParsedArgs &args)
-    {
-        if (args.subcommand.empty())
-        {
-            output_->error("Usage: uniconv plugin deps info <plugin-name>");
-            return 1;
-        }
-
-        const auto &name = args.subcommand;
-
-        auto env = dep_installer_.get_env(name);
-        if (!env)
-        {
-            output_->error("No dependency environment found for: " + name);
-            return 1;
-        }
-
-        nlohmann::json j;
-        j["plugin"] = name;
-        j["env_dir"] = env->env_dir.string();
-        j["has_python"] = env->has_python_env();
-        j["has_node"] = env->has_node_env();
-        j["dependencies"] = nlohmann::json::array();
-        for (const auto& dep : env->dependencies)
-        {
-            j["dependencies"].push_back(dep.to_json());
-        }
-
-        std::ostringstream text;
-        text << "Plugin:     " << name << "\n";
-        text << "Env Dir:    " << env->env_dir << "\n";
-        text << "Python:     " << (env->has_python_env() ? "Yes" : "No") << "\n";
-        if (env->has_python_env())
-        {
-            text << "  Venv:     " << env->python_dir() << "\n";
-            text << "  Python:   " << env->python_bin() << "\n";
-        }
-        text << "Node:       " << (env->has_node_env() ? "Yes" : "No");
-        if (env->has_node_env())
-        {
-            text << "\n  Modules:  " << env->node_dir() / "node_modules";
-        }
-
-        if (!env->dependencies.empty())
-        {
-            text << "\n\nInstalled dependencies:";
-            for (const auto& dep : env->dependencies)
-            {
-                text << "\n  [" << dep.type << "] " << dep.name;
-                if (!dep.version.empty())
-                {
-                    text << " (" << dep.version << ")";
-                }
-            }
-        }
-
-        output_->data(j, text.str());
-        return 0;
     }
 
 } // namespace uniconv::cli::commands
