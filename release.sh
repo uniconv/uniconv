@@ -97,7 +97,11 @@ echo "--- Step 1: Update CMakeLists.txt ---"
 if $DRY_RUN; then
     echo "  [dry-run] Would update VERSION $CURRENT_VERSION → $NEW_VERSION in CMakeLists.txt"
 else
-    sed -i '' "s/project(uniconv VERSION $CURRENT_VERSION/project(uniconv VERSION $NEW_VERSION/" "$CMAKELISTS"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' "s/project(uniconv VERSION $CURRENT_VERSION/project(uniconv VERSION $NEW_VERSION/" "$CMAKELISTS"
+    else
+        sed -i "s/project(uniconv VERSION $CURRENT_VERSION/project(uniconv VERSION $NEW_VERSION/" "$CMAKELISTS"
+    fi
     echo "  Updated VERSION to $NEW_VERSION"
 fi
 echo ""
