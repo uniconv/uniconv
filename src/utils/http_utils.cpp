@@ -237,16 +237,45 @@ namespace uniconv::utils
         HttpResponse response;
 
         auto timeout_str = std::to_string(timeout.count());
+        // Use -w to append HTTP status code after response body
         std::vector<std::string> args = {
-            "-sS", "-f", "-L", "--max-time", timeout_str, url};
+            "-sS", "-L", "--max-time", timeout_str,
+            "-H", "User-Agent: uniconv",
+            "-w", "\n%{http_code}",
+            url};
 
         auto result = run_command("curl", args, timeout + std::chrono::seconds{5});
 
         if (result.exit_code == 0)
         {
-            response.success = true;
-            response.status_code = 200;
-            response.body = std::move(result.stdout_data);
+            // Parse the HTTP status code from the end of stdout
+            auto &output = result.stdout_data;
+            auto last_newline = output.rfind('\n');
+            if (last_newline != std::string::npos && last_newline < output.size() - 1)
+            {
+                std::string status_str = output.substr(last_newline + 1);
+                response.status_code = std::stoi(status_str);
+                response.body = output.substr(0, last_newline);
+            }
+            else
+            {
+                response.status_code = 200;
+                response.body = std::move(output);
+            }
+
+            response.success = (response.status_code >= 200 && response.status_code < 300);
+            if (!response.success)
+            {
+                // Check for rate limit message in response body
+                if (response.body.find("rate limit") != std::string::npos)
+                {
+                    response.error = "GitHub API rate limit exceeded. Try again later.";
+                }
+                else
+                {
+                    response.error = "HTTP " + std::to_string(response.status_code);
+                }
+            }
         }
         else
         {
@@ -333,6 +362,25 @@ namespace uniconv::utils
 #endif
 
         return os + "-" + arch;
+    }
+
+    std::optional<std::string> get_redirect_url(const std::string &url,
+                                                 std::chrono::seconds timeout)
+    {
+        auto timeout_str = std::to_string(timeout.count());
+        // Use -o /dev/null to discard body, -w to get effective URL after redirects
+        std::vector<std::string> args = {
+            "-sS", "-L", "--max-time", timeout_str,
+            "-o", "/dev/null",
+            "-w", "%{url_effective}",
+            url};
+
+        auto result = run_command("curl", args, timeout + std::chrono::seconds{5});
+
+        if (result.exit_code != 0 || result.stdout_data.empty())
+            return std::nullopt;
+
+        return result.stdout_data;
     }
 
 } // namespace uniconv::utils

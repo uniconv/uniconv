@@ -29,7 +29,10 @@ namespace uniconv::cli::commands
         auto latest_version = fetch_latest_version();
         if (latest_version.empty())
         {
-            output_->error("Failed to check for latest version");
+            std::string msg = "Failed to check for latest version";
+            if (!last_error_.empty())
+                msg += ": " + last_error_;
+            output_->error(msg);
             return 1;
         }
 
@@ -55,47 +58,29 @@ namespace uniconv::cli::commands
 
     std::string UpdateCommand::fetch_latest_version()
     {
-        // Use curl to follow the /releases/latest redirect and extract
-        // the final URL which contains the tag name.
-        auto response = utils::http_get(
+        // Use the GitHub releases/latest redirect to get the version tag.
+        // This avoids the API rate limit (60 req/hour unauthenticated).
+        // The URL redirects from /releases/latest to /releases/tag/vX.Y.Z
+        auto effective_url = utils::get_redirect_url(
             "https://github.com/uniconv/uniconv/releases/latest",
             std::chrono::seconds{15});
 
-        if (!response.success)
+        if (!effective_url)
+        {
+            last_error_ = "Failed to fetch release info";
             return {};
+        }
 
-        // If http_get followed the redirect, the body is the release page HTML.
-        // Instead, we look at the effective URL by doing a HEAD-like request.
-        // Actually, our http_get uses -L so it follows redirects.
-        // We need a different approach: use the GitHub API.
-        // Fetch the tag from the GitHub API redirect.
-        auto api_response = utils::http_get(
-            "https://api.github.com/repos/uniconv/uniconv/releases/latest",
-            std::chrono::seconds{15});
-
-        if (!api_response.success)
-            return {};
-
-        // Parse the tag_name from JSON response
-        // Look for "tag_name": "v0.1.11" pattern
-        auto body = api_response.body;
-        auto tag_pos = body.find("\"tag_name\"");
+        // Parse version from URL: https://github.com/uniconv/uniconv/releases/tag/v0.3.0
+        const std::string tag_marker = "/releases/tag/";
+        auto tag_pos = effective_url->find(tag_marker);
         if (tag_pos == std::string::npos)
+        {
+            last_error_ = "No releases found";
             return {};
+        }
 
-        auto colon_pos = body.find(':', tag_pos);
-        if (colon_pos == std::string::npos)
-            return {};
-
-        auto quote1 = body.find('"', colon_pos + 1);
-        if (quote1 == std::string::npos)
-            return {};
-
-        auto quote2 = body.find('"', quote1 + 1);
-        if (quote2 == std::string::npos)
-            return {};
-
-        std::string tag = body.substr(quote1 + 1, quote2 - quote1 - 1);
+        std::string tag = effective_url->substr(tag_pos + tag_marker.size());
 
         // Strip leading 'v' if present
         if (!tag.empty() && tag[0] == 'v')

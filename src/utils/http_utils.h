@@ -31,4 +31,8 @@ namespace uniconv::utils
     // Detect the current platform string (e.g., "linux-x86_64", "darwin-aarch64").
     std::string get_platform_string();
 
+    // Get the effective URL after following redirects (useful for GitHub /releases/latest).
+    std::optional<std::string> get_redirect_url(const std::string &url,
+                                                 std::chrono::seconds timeout = std::chrono::seconds{15});
+
 } // namespace uniconv::utils

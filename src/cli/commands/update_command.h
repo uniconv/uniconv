@@ -14,6 +14,8 @@ public:
 
 private:
     std::shared_ptr<core::output::IOutput> output_;
+    std::string last_error_;
+
     // Fetch the latest release tag from GitHub
     std::string fetch_latest_version();
 
