@@ -134,6 +134,65 @@ int main(int argc, char **argv)
             return cmd.execute(args);
         }
 
+        case cli::Command::Watch:
+        {
+            cli::PipelineParser pipeline_parser;
+            std::filesystem::path watch_dir = args.watch_dir;
+            std::string pipeline_str = args.pipeline;
+
+            if (!std::filesystem::is_directory(watch_dir))
+            {
+                output->error("Watch directory does not exist or is not a directory: " + watch_dir.string());
+                return 1;
+            }
+
+            output->info("Watching directory: " + watch_dir.string());
+            output->info("Pipeline: " + pipeline_str);
+            output->info("Press Ctrl+C to stop");
+
+            core::Watcher watcher;
+            g_watcher = &watcher;
+
+            // Set up signal handlers
+            std::signal(SIGINT, signal_handler);
+            std::signal(SIGTERM, signal_handler);
+
+            watcher.set_callback([&](const std::filesystem::path &file_path, core::FileEvent event)
+                                 {
+                std::string event_str = (event == core::FileEvent::Created) ? "New" : "Modified";
+                output->info(event_str + " file: " + file_path.filename().string());
+
+                // Parse and execute pipeline for this file
+                auto file_parse_result = pipeline_parser.parse(pipeline_str, file_path, args.core_options);
+                if (!file_parse_result.success)
+                {
+                    output->error("  Pipeline error: " + file_parse_result.error);
+                    return;
+                }
+
+                core::PipelineExecutor executor(engine);
+                auto result = executor.execute(file_parse_result.pipeline);
+
+                if (result.success)
+                {
+                    output->success("  Completed");
+                    for (const auto &out : result.final_outputs)
+                    {
+                        output->info("    -> " + out.string());
+                    }
+                }
+                else if (result.error)
+                {
+                    output->error("  Failed: " + *result.error);
+                } });
+
+            watcher.watch(watch_dir, args.core_options.recursive);
+
+            g_watcher = nullptr;
+            output->info("Watch mode stopped");
+            return 0;
+        }
+
         case cli::Command::Pipeline:
         {
             cli::PipelineParser pipeline_parser;
@@ -156,63 +215,7 @@ int main(int argc, char **argv)
                 return 1;
             }
 
-            // Watch mode
-            if (args.watch)
-            {
-                if (!std::filesystem::is_directory(source))
-                {
-                    output->error("Watch mode requires a directory as source");
-                    return 1;
-                }
-
-                output->info("Watching directory: " + source.string());
-                output->info("Pipeline: " + pipeline_str);
-                output->info("Press Ctrl+C to stop");
-
-                core::Watcher watcher;
-                g_watcher = &watcher;
-
-                // Set up signal handlers
-                std::signal(SIGINT, signal_handler);
-                std::signal(SIGTERM, signal_handler);
-
-                watcher.set_callback([&](const std::filesystem::path &file_path, core::FileEvent event)
-                                     {
-                    std::string event_str = (event == core::FileEvent::Created) ? "New" : "Modified";
-                    output->info(event_str + " file: " + file_path.filename().string());
-
-                    // Parse and execute pipeline for this file
-                    auto file_parse_result = pipeline_parser.parse(pipeline_str, file_path, args.core_options);
-                    if (!file_parse_result.success)
-                    {
-                        output->error("  Pipeline error: " + file_parse_result.error);
-                        return;
-                    }
-
-                    core::PipelineExecutor executor(engine);
-                    auto result = executor.execute(file_parse_result.pipeline);
-
-                    if (result.success)
-                    {
-                        output->success("  Completed");
-                        for (const auto &out : result.final_outputs)
-                        {
-                            output->info("    -> " + out.string());
-                        }
-                    }
-                    else if (result.error)
-                    {
-                        output->error("  Failed: " + *result.error);
-                    } });
-
-                watcher.watch(source, args.core_options.recursive);
-
-                g_watcher = nullptr;
-                output->info("Watch mode stopped");
-                return 0;
-            }
-
-            // Normal (non-watch) pipeline execution
+            // Pipeline execution
             auto parse_result = pipeline_parser.parse(pipeline_str, source, args.core_options);
             if (!parse_result.success)
             {

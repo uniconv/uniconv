@@ -21,8 +21,8 @@ namespace uniconv::cli
                    "  uniconv photo.heic \"jpg --quality 90\"         # With quality option\n"
                    "  uniconv photo.heic \"jpg | ascii\"              # Multi-stage pipeline\n"
                    "  uniconv -o out.png photo.heic \"png\"           # Specify output path\n"
-                   "  uniconv --watch ./incoming \"jpg | ascii\"      # Watch directory\n"
-                   "  uniconv -o ./out -r ./photos \"jpg\"            # Batch convert directory");
+                   "  uniconv -o ./out -r ./photos \"jpg\"            # Batch convert directory\n"
+                   "  uniconv watch ./incoming \"jpg\"                # Watch directory for changes");
 
         setup_main_options(app, args);
         setup_subcommands(app, args);
@@ -66,8 +66,8 @@ namespace uniconv::cli
                    "  uniconv photo.heic \"jpg --quality 90\"         # With quality option\n"
                    "  uniconv photo.heic \"jpg | ascii\"              # Multi-stage pipeline\n"
                    "  uniconv -o out.png photo.heic \"png\"           # Specify output path\n"
-                   "  uniconv --watch ./incoming \"jpg | ascii\"      # Watch directory\n"
-                   "  uniconv -o ./out -r ./photos \"jpg\"            # Batch convert directory");
+                   "  uniconv -o ./out -r ./photos \"jpg\"            # Batch convert directory\n"
+                   "  uniconv watch ./incoming \"jpg\"                # Watch directory for changes");
         ParsedArgs dummy;
         setup_main_options(app, dummy);
         setup_subcommands(app, dummy);
@@ -90,9 +90,6 @@ namespace uniconv::cli
         // Interactive mode
         app.add_flag("--interactive", args.interactive, "Force interactive mode");
         app.add_flag("--no-interactive", args.no_interactive, "Disable interactive mode");
-
-        // Watch mode
-        app.add_flag("--watch", args.watch, "Watch directory for changes");
 
         // Preset
         app.add_option("-p,--preset", args.preset, "Use preset");
@@ -245,6 +242,25 @@ namespace uniconv::cli
         update_cmd->callback([&args]()
                              { args.command = Command::Update; });
 
+        // Watch command
+        auto *watch_cmd = app.add_subcommand("watch", "Watch directory for changes and process new files");
+        watch_cmd->add_option("-o,--output", args.core_options.output, "Output directory");
+        watch_cmd->add_flag("-f,--force", args.core_options.force, "Overwrite existing files");
+        watch_cmd->add_flag("-r,--recursive", args.core_options.recursive, "Watch directories recursively");
+        watch_cmd->add_flag("--json", args.core_options.json_output, "Output as JSON");
+        watch_cmd->add_flag("--verbose", args.core_options.verbose, "Verbose output");
+        watch_cmd->add_flag("--quiet", args.core_options.quiet, "Suppress output");
+        watch_cmd->add_flag("--dry-run", args.core_options.dry_run, "Show what would be done");
+        watch_cmd->add_option("directory", args.watch_dir, "Directory to watch")->required()->type_name("DIR");
+        watch_cmd->add_option("pipeline", args.pipeline, "Pipeline transformation stages")->required()->type_name("PIPELINE");
+        watch_cmd->footer("\nExamples:\n"
+                          "  uniconv watch ./incoming \"jpg\"              # Watch and convert to JPG\n"
+                          "  uniconv watch ./incoming \"jpg | png\"        # Multi-stage pipeline\n"
+                          "  uniconv watch -o ./output ./incoming \"jpg\"  # With output directory\n"
+                          "  uniconv watch -r ./incoming \"jpg\"           # Watch recursively");
+        watch_cmd->callback([&args]()
+                            { args.command = Command::Watch; });
+
         // Config command (hidden — not yet implemented)
         auto *config_cmd = app.add_subcommand("config", "Manage configuration");
         config_cmd->group("");
@@ -288,12 +304,6 @@ namespace uniconv::cli
 
         // Preset usage with input
         if (args.preset.has_value() && args.input.has_value())
-        {
-            return Command::Pipeline;
-        }
-
-        // Watch mode with input (directory)
-        if (args.watch && args.input.has_value())
         {
             return Command::Pipeline;
         }

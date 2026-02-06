@@ -540,7 +540,6 @@ uniconv [core옵션] "<source> | ..."
 | `--no-interactive`    | interactive 모드 끄기 |
 | `--interactive`       | interactive 모드 강제 |
 | `--preset <n>`        | 프리셋 사용           |
-| `--watch`             | 폴더 감시 모드        |
 
 **플러그인별 옵션** (파이프라인 내 타겟 뒤에 위치):
 - `--quality`, `--width`, `--height` 등은 각 타겟의 플러그인별 옵션
@@ -671,16 +670,19 @@ uniconv --preset video-gif video.mp4
 
 ```bash
 # 기본
-uniconv --watch "./incoming | jpg"
+uniconv watch ./incoming "jpg"
 
 # 프리셋과 함께
-uniconv --watch --preset insta ./incoming
+uniconv watch -p insta ./incoming ""
 
 # 출력 경로 지정
-uniconv --watch -o ./processed "./incoming | jpg"
+uniconv watch -o ./processed ./incoming "jpg"
 
 # 파이프라인
-uniconv --watch "./incoming | jpg | gdrive"
+uniconv watch ./incoming "jpg | gdrive"
+
+# 재귀적 감시
+uniconv watch -r ./incoming "jpg"
 ```
 
 ---

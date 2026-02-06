@@ -282,4 +282,81 @@ std::filesystem::path unique_path(const std::filesystem::path& path) {
     return new_path;
 }
 
+std::vector<core::DataType> detect_input_types(const std::string& format) {
+    static const std::unordered_map<std::string, std::vector<core::DataType>> format_types = {
+        // Images
+        {"jpg", {core::DataType::Image}},
+        {"jpeg", {core::DataType::Image}},
+        {"png", {core::DataType::Image}},
+        {"webp", {core::DataType::Image}},
+        {"gif", {core::DataType::Image, core::DataType::Video}},  // GIF can be animated
+        {"heic", {core::DataType::Image}},
+        {"heif", {core::DataType::Image}},
+        {"bmp", {core::DataType::Image}},
+        {"tiff", {core::DataType::Image}},
+        {"tif", {core::DataType::Image}},
+        {"svg", {core::DataType::Image}},
+        {"ico", {core::DataType::Image}},
+        {"raw", {core::DataType::Image}},
+        {"cr2", {core::DataType::Image}},
+        {"nef", {core::DataType::Image}},
+        {"arw", {core::DataType::Image}},
+
+        // Videos
+        {"mp4", {core::DataType::Video}},
+        {"mov", {core::DataType::Video}},
+        {"avi", {core::DataType::Video}},
+        {"webm", {core::DataType::Video}},
+        {"mkv", {core::DataType::Video}},
+        {"m4v", {core::DataType::Video}},
+        {"mpeg", {core::DataType::Video}},
+        {"mpg", {core::DataType::Video}},
+        {"wmv", {core::DataType::Video}},
+        {"flv", {core::DataType::Video}},
+        {"3gp", {core::DataType::Video}},
+        {"ogv", {core::DataType::Video}},
+
+        // Documents - PDF is ambiguous, treat as File
+        {"pdf", {core::DataType::File}},
+        {"docx", {core::DataType::File}},
+        {"doc", {core::DataType::File}},
+        {"xlsx", {core::DataType::File}},
+        {"xls", {core::DataType::File}},
+        {"pptx", {core::DataType::File}},
+        {"ppt", {core::DataType::File}},
+        {"odt", {core::DataType::File}},
+        {"ods", {core::DataType::File}},
+        {"odp", {core::DataType::File}},
+        {"rtf", {core::DataType::File}},
+
+        // Audio
+        {"mp3", {core::DataType::Audio}},
+        {"wav", {core::DataType::Audio}},
+        {"flac", {core::DataType::Audio}},
+        {"aac", {core::DataType::Audio}},
+        {"ogg", {core::DataType::Audio}},
+        {"wma", {core::DataType::Audio}},
+        {"m4a", {core::DataType::Audio}},
+        {"opus", {core::DataType::Audio}},
+
+        // Text
+        {"txt", {core::DataType::Text}},
+        {"md", {core::DataType::Text}},
+        {"json", {core::DataType::Text, core::DataType::Json}},
+        {"xml", {core::DataType::Text}},
+        {"csv", {core::DataType::Text}},
+        {"html", {core::DataType::Text}},
+        {"htm", {core::DataType::Text}},
+        {"yaml", {core::DataType::Text}},
+        {"yml", {core::DataType::Text}},
+        {"log", {core::DataType::Text}},
+    };
+
+    auto it = format_types.find(to_lower(format));
+    if (it != format_types.end()) {
+        return it->second;
+    }
+    return {core::DataType::File};  // Default to File
+}
+
 } // namespace uniconv::utils

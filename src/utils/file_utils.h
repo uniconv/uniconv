@@ -42,4 +42,8 @@ std::vector<std::filesystem::path> get_files_in_directory(
 // Generate unique output filename if exists
 std::filesystem::path unique_path(const std::filesystem::path& path);
 
+// Detect input data types from format string
+// Maps file extensions to DataType vectors (e.g., "png" -> {Image}, "gif" -> {Image, Video})
+std::vector<core::DataType> detect_input_types(const std::string& format);
+
 } // namespace uniconv::utils

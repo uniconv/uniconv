@@ -10,6 +10,7 @@ FetchContent_MakeAvailable(googletest)
 set(UNICONV_SOURCES
     ${CMAKE_SOURCE_DIR}/src/core/engine.cpp
     ${CMAKE_SOURCE_DIR}/src/core/plugin_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/plugin_resolver.cpp
     ${CMAKE_SOURCE_DIR}/src/core/preset_manager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_executor.cpp
     ${CMAKE_SOURCE_DIR}/src/core/execution_graph.cpp

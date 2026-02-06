@@ -3,6 +3,7 @@
 #include "core/types.h"
 #include "core/dependency_installer.h"
 #include "core/plugin_discovery.h"
+#include "core/plugin_resolver.h"
 #include "plugins/plugin_interface.h"
 #include <filesystem>
 #include <map>
@@ -39,14 +40,18 @@ namespace uniconv::core
         // Register a plugin
         void register_plugin(std::unique_ptr<plugins::IPlugin> plugin);
 
-        // Find plugin for target
+        // Find plugin for target (basic - backward compatible)
         // Returns nullptr if not found
         // If multiple match and no explicit plugin specified, returns default or first
         plugins::IPlugin *find_plugin(
             const std::string &target,
             const std::optional<std::string> &explicit_plugin = std::nullopt);
 
-        // Find plugin that can handle a specific input format and target
+        // Find plugin with full resolution context (new enhanced method)
+        // Uses PluginResolver for intelligent matching based on input format, type, and target
+        plugins::IPlugin *find_plugin(const ResolutionContext &context);
+
+        // Find plugin that can handle a specific input format and target (backward compatible)
         plugins::IPlugin *find_plugin_for_input(
             const std::string &input_format,
             const std::string &target);
@@ -66,7 +71,7 @@ namespace uniconv::core
 
     private:
         std::vector<std::unique_ptr<plugins::IPlugin>> plugins_;
-        std::map<std::string, std::string> defaults_; // target → plugin_scope
+        PluginResolver resolver_;
         PluginDiscovery discovery_;
         DependencyInstaller dep_installer_;
         bool external_loaded_ = false;

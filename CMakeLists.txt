@@ -47,6 +47,8 @@ add_executable(uniconv
     src/core/engine.cpp
     src/core/plugin_manager.h
     src/core/plugin_manager.cpp
+    src/core/plugin_resolver.h
+    src/core/plugin_resolver.cpp
     src/core/preset_manager.h
     src/core/preset_manager.cpp
     src/core/plugin_manifest.h

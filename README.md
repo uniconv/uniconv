@@ -266,7 +266,6 @@ uniconv <command> [args]
 | `--quiet` | Suppress output |
 | `--verbose` | Detailed output |
 | `--preset <name>` | Use a saved preset |
-| `--watch` | Watch directory for changes |
 | `--version` | Show version |
 | `-h, --help` | Show help |
 
@@ -276,6 +275,7 @@ uniconv <command> [args]
 |---------|-------------|
 | `info <file>` | Show file details (format, size, dimensions) |
 | `formats` | List supported formats |
+| `watch <dir> "<pipeline>"` | Watch directory and process new files |
 | `update` | Update uniconv to the latest version |
 | `plugin list` | List installed plugins |
 | `plugin install <name>` | Install a plugin or collection |

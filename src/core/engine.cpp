@@ -34,18 +34,15 @@ namespace uniconv::core
         auto input_format = utils::detect_format(request.source);
         size_t input_size = std::filesystem::file_size(request.source);
 
-        // Find appropriate plugin
-        auto *plugin = plugin_manager_->find_plugin_for_input(
-            input_format,
-            request.target);
+        // Build resolution context with full information
+        ResolutionContext ctx;
+        ctx.input_format = input_format;
+        ctx.target = request.target;
+        ctx.explicit_plugin = request.plugin;
+        ctx.input_types = utils::detect_input_types(input_format);
 
-        if (!plugin)
-        {
-            // Try finding by target only
-            plugin = plugin_manager_->find_plugin(
-                request.target,
-                request.plugin);
-        }
+        // Find appropriate plugin using the enhanced resolver
+        auto *plugin = plugin_manager_->find_plugin(ctx);
 
         if (!plugin)
         {

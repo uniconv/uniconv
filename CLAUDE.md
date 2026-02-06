@@ -57,11 +57,11 @@ uniconv -o output.png "photo.jpg | png"
 - `--dry-run` - Show what would be done
 - `-r, --recursive` - Process directories recursively
 - `-p, --preset` - Use preset
-- `--watch` - Watch directory for changes
 
 **Subcommands:**
 - `info <file>` - Show file information
 - `formats` - List supported formats
+- `watch <dir> "<pipeline>"` - Watch directory for changes
 - `preset list|create|delete|show|export|import` - Manage presets
 - `plugin list|install|remove|info|search|update` - Manage plugins (supports `+<collection>` install)
 - `config get|set|list` - Manage configuration

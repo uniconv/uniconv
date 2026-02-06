@@ -16,6 +16,7 @@ enum class Command {
     Preset,        // uniconv preset <subcommand>
     Plugin,        // uniconv plugin <subcommand>
     Config,        // uniconv config <subcommand>
+    Watch,         // uniconv watch <dir> <pipeline>
     Interactive,   // No command, enter interactive mode
     Help,          // Show help
     Version,       // Show version
@@ -42,10 +43,12 @@ struct ParsedArgs {
     // Flags
     bool interactive = false;
     bool no_interactive = false;
-    bool watch = false;
     bool list_registry = false;
     bool update_check_only = false;
     std::optional<std::string> preset;
+
+    // Watch mode
+    std::string watch_dir;
 };
 
 class CliParser {

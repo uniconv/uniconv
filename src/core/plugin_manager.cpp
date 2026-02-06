@@ -2,8 +2,8 @@
 #include "config_manager.h"
 #include "plugin_loader_cli.h"
 #include "plugin_loader_native.h"
+#include "utils/file_utils.h"
 #include <algorithm>
-#include <set>
 
 namespace uniconv::core
 {
@@ -110,100 +110,47 @@ namespace uniconv::core
         }
     }
 
-    // Find plugin by target
+    // Find plugin by target (basic - backward compatible)
     plugins::IPlugin *PluginManager::find_plugin(
         const std::string &target,
         const std::optional<std::string> &explicit_plugin)
     {
-        auto lower_target = to_lower(target);
+        // Build a minimal resolution context
+        ResolutionContext context;
+        context.target = target;
+        context.explicit_plugin = explicit_plugin;
+        // No input_format or input_types - will fall through to target-only matching
 
-        // If explicit plugin specified, find it
-        if (explicit_plugin)
-        {
-            auto lower_explicit = to_lower(*explicit_plugin);
-            for (auto &plugin : plugins_)
-            {
-                auto info = plugin->info();
-                if (to_lower(info.scope) == lower_explicit &&
-                    plugin->supports_target(lower_target))
-                {
-                    return plugin.get();
-                }
-            }
-            return nullptr; // Explicit plugin not found
-        }
-
-        // Check for default plugin for this target
-        auto default_it = defaults_.find(lower_target);
-        if (default_it != defaults_.end())
-        {
-            for (auto &plugin : plugins_)
-            {
-                auto info = plugin->info();
-                if (to_lower(info.scope) == default_it->second &&
-                    plugin->supports_target(lower_target))
-                {
-                    return plugin.get();
-                }
-            }
-        }
-
-        // Find first plugin that supports this target
-        for (auto &plugin : plugins_)
-        {
-            if (plugin->supports_target(lower_target))
-            {
-                return plugin.get();
-            }
-        }
-
-        return nullptr;
+        auto result = resolver_.resolve(context, plugins_);
+        return result.plugin;
     }
 
-    // Find plugin for input format and target
+    // Find plugin with full resolution context (new enhanced method)
+    plugins::IPlugin *PluginManager::find_plugin(const ResolutionContext &context)
+    {
+        auto result = resolver_.resolve(context, plugins_);
+        return result.plugin;
+    }
+
+    // Find plugin for input format and target (backward compatible)
     plugins::IPlugin *PluginManager::find_plugin_for_input(
         const std::string &input_format,
         const std::string &target)
     {
-        auto lower_input = to_lower(input_format);
-        auto lower_target = to_lower(target);
+        // Build resolution context with input format and type information
+        ResolutionContext context;
+        context.input_format = input_format;
+        context.target = target;
+        context.input_types = utils::detect_input_types(input_format);
 
-        for (auto &plugin : plugins_)
-        {
-            if (plugin->supports_input(lower_input) &&
-                plugin->supports_target(lower_target))
-            {
-                return plugin.get();
-            }
-        }
-
-        return nullptr;
+        auto result = resolver_.resolve(context, plugins_);
+        return result.plugin;
     }
 
-    // Check if two plugins can be connected
+    // Check if two plugins can be connected - delegate to resolver
     bool PluginManager::can_connect(const PluginInfo &from, const PluginInfo &to) const
     {
-        // If either plugin doesn't specify types, assume File type (always compatible)
-        if (from.output_types.empty() || to.input_types.empty())
-        {
-            return true;
-        }
-
-        // Check if any output type from 'from' matches any input type in 'to'
-        for (const auto &out_type : from.output_types)
-        {
-            for (const auto &in_type : to.input_types)
-            {
-                if (out_type == in_type ||
-                    out_type == DataType::File ||
-                    in_type == DataType::File)
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return resolver_.can_connect(from, to);
     }
 
     std::vector<PluginInfo> PluginManager::list_plugins() const
@@ -233,17 +180,12 @@ namespace uniconv::core
 
     void PluginManager::set_default(const std::string &target, const std::string &plugin_scope)
     {
-        defaults_[to_lower(target)] = to_lower(plugin_scope);
+        resolver_.set_default(target, plugin_scope);
     }
 
     std::optional<std::string> PluginManager::get_default(const std::string &target) const
     {
-        auto it = defaults_.find(to_lower(target));
-        if (it != defaults_.end())
-        {
-            return it->second;
-        }
-        return std::nullopt;
+        return resolver_.get_default(target);
     }
 
 } // namespace uniconv::core
