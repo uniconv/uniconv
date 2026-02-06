@@ -635,11 +635,21 @@ namespace uniconv::cli::commands
         output_->info("Installing " + std::to_string(collection->plugins.size()) + " plugin(s)...\n");
 
         int installed = 0;
+        int skipped = 0;
         int failed = 0;
 
         for (const auto &plugin_name : collection->plugins)
         {
             output_->info("--- " + plugin_name + " ---");
+
+            // Check if already installed (skip unless --force)
+            if (!args.core_options.force && installed_.is_registry_installed(plugin_name))
+            {
+                output_->info("Already installed, skipping");
+                ++skipped;
+                output_->info("");
+                continue;
+            }
 
             int result = install_from_registry(plugin_name, std::nullopt, args);
             if (result == 0)
@@ -655,6 +665,8 @@ namespace uniconv::cli::commands
         }
 
         std::string summary = std::to_string(installed) + " plugin(s) installed";
+        if (skipped > 0)
+            summary += ", " + std::to_string(skipped) + " skipped";
         if (failed > 0)
             summary += ", " + std::to_string(failed) + " failed";
 
@@ -662,6 +674,7 @@ namespace uniconv::cli::commands
         j["success"] = (failed == 0);
         j["collection"] = collection_name;
         j["installed"] = installed;
+        j["skipped"] = skipped;
         j["failed"] = failed;
         j["plugins"] = nlohmann::json::array();
         for (const auto &p : collection->plugins)
@@ -945,12 +958,43 @@ namespace uniconv::cli::commands
 
         if (!args.subcommand.empty())
         {
-            if (!installed_.is_registry_installed(args.subcommand))
+            // Check if it's a collection (+ prefix)
+            if (args.subcommand.size() > 1 && args.subcommand[0] == '+')
             {
-                output_->error(args.subcommand + " was not installed from registry");
-                return 1;
+                auto collection_name = args.subcommand.substr(1);
+                auto collection = client->find_collection(collection_name);
+                if (!collection)
+                {
+                    output_->error("Collection not found: " + collection_name);
+                    return 1;
+                }
+
+                output_->info("Updating collection '" + collection_name + "'...");
+
+                // Add installed plugins from this collection to update list
+                for (const auto &plugin_name : collection->plugins)
+                {
+                    if (installed_.is_registry_installed(plugin_name))
+                    {
+                        to_update.push_back(plugin_name);
+                    }
+                }
+
+                if (to_update.empty())
+                {
+                    output_->info("No plugins from collection '" + collection_name + "' are installed");
+                    return 0;
+                }
             }
-            to_update.push_back(args.subcommand);
+            else
+            {
+                if (!installed_.is_registry_installed(args.subcommand))
+                {
+                    output_->error(args.subcommand + " was not installed from registry");
+                    return 1;
+                }
+                to_update.push_back(args.subcommand);
+            }
         }
         else
         {

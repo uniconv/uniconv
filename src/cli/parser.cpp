@@ -224,10 +224,11 @@ namespace uniconv::cli
         args.subcommand_args.insert(args.subcommand_args.begin(), "search"); });
 
         auto *plugin_update = plugin_cmd->add_subcommand("update", "Update plugin(s)");
-        plugin_update->add_option("name", args.subcommand, "Plugin name (optional, updates all if omitted)");
+        plugin_update->add_option("name", args.subcommand, "Plugin name, +collection, or omit for all");
         plugin_update->footer("\nExamples:\n"
                               "  uniconv plugin update                # Update all plugins\n"
-                              "  uniconv plugin update image-convert  # Update specific plugin");
+                              "  uniconv plugin update image-convert  # Update specific plugin\n"
+                              "  uniconv plugin update +essentials    # Update collection plugins");
         plugin_update->callback([&args]()
                                 {
         args.command = Command::Plugin;
