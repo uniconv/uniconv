@@ -254,25 +254,15 @@ namespace uniconv::core
     {
         DependencyCheckResult result;
 
-        // Parse the check command into command + args
-        // Simple split by spaces (doesn't handle quotes, but sufficient for commands like "pkg-config --exists vips")
-        std::vector<std::string> parts;
-        std::istringstream iss(*dep.check);
-        std::string token;
-        while (iss >> token)
-            parts.push_back(token);
-
-        if (parts.empty())
+        if (dep.check->empty())
         {
             result.satisfied = false;
             result.message = "Empty check command";
             return result;
         }
 
-        std::string command = parts[0];
-        std::vector<std::string> args(parts.begin() + 1, parts.end());
-
-        int exit_code = run_check_command(command, args);
+        // Run through shell to support operators like ||, &&, pipes, etc.
+        int exit_code = run_check_command("sh", {"-c", *dep.check});
 
         if (exit_code == 0)
         {

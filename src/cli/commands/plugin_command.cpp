@@ -871,32 +871,49 @@ namespace uniconv::cli::commands
 
         if (!manifest->dependencies.empty())
         {
-            // Check dependency status
-            auto dep_status = dep_installer_.check_deps(*manifest);
+            // Check all dependencies (system, python, node)
+            auto dep_results = dep_checker_.check_all(manifest->dependencies);
+
+            std::vector<std::string> missing;
+            for (const auto& [dep_info, check_result] : dep_results)
+            {
+                if (!check_result.satisfied)
+                {
+                    missing.push_back(dep_info.name);
+                }
+            }
 
             text << "\n\nDependencies:";
-            if (dep_status.satisfied)
+            if (missing.empty())
             {
                 text << " (all satisfied)";
             }
             else
             {
-                text << " (MISSING: " << dep_status.missing.size() << ")";
+                text << " (MISSING: " << missing.size() << ")";
             }
 
-            for (const auto &dep : manifest->dependencies)
+            for (const auto& [dep_info, check_result] : dep_results)
             {
-                bool is_missing = std::find(dep_status.missing.begin(),
-                                            dep_status.missing.end(),
-                                            dep.name) != dep_status.missing.end();
-                text << "\n  [" << dep.type << "] " << dep.name;
-                if (dep.version)
-                    text << " " << *dep.version;
-                text << (is_missing ? " - MISSING" : " - OK");
+                text << "\n  [" << dep_info.type << "] " << dep_info.name;
+                if (dep_info.version)
+                    text << " " << *dep_info.version;
+                if (check_result.satisfied)
+                {
+                    text << " - OK";
+                }
+                else
+                {
+                    text << " - MISSING";
+                    if (dep_info.install_hint)
+                    {
+                        text << "\n      hint: " << *dep_info.install_hint;
+                    }
+                }
             }
 
-            j["deps_satisfied"] = dep_status.satisfied;
-            j["deps_missing"] = dep_status.missing;
+            j["deps_satisfied"] = missing.empty();
+            j["deps_missing"] = missing;
         }
 
         output_->data(j, text.str());
