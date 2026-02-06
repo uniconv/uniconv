@@ -350,9 +350,13 @@ namespace uniconv::cli::commands
                     {
                         deps_failed = true;
                         deps_error = "Missing system dependency: " + dep_info.name;
-                        if (!check_result.install_hint.empty())
+                        if (dep_info.install_hint)
                         {
-                            deps_error += " (hint: " + check_result.install_hint + ")";
+                            deps_error += " (hint: " + *dep_info.install_hint + ")";
+                        }
+                        else
+                        {
+                            deps_error += " (see plugin documentation for install instructions)";
                         }
                         output_->error(deps_error);
                     }
@@ -528,9 +532,13 @@ namespace uniconv::cli::commands
                 {
                     deps_failed = true;
                     deps_error = "Missing system dependency: " + dep_info.name;
-                    if (!check_result.install_hint.empty())
+                    if (dep_info.install_hint)
                     {
-                        deps_error += " (hint: " + check_result.install_hint + ")";
+                        deps_error += " (hint: " + *dep_info.install_hint + ")";
+                    }
+                    else
+                    {
+                        deps_error += " (see plugin documentation for install instructions)";
                     }
                     output_->error(deps_error);
                 }

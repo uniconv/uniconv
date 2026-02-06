@@ -42,8 +42,9 @@ namespace uniconv::core
     {
         std::string name; // e.g., "python3", "Pillow"
         std::string type; // "system", "python", "node"
-        std::optional<std::string> version; // e.g., ">=3.8"
-        std::optional<std::string> check;   // custom verification command
+        std::optional<std::string> version;      // e.g., ">=3.8"
+        std::optional<std::string> check;        // custom verification command
+        std::optional<std::string> install_hint; // e.g., "brew install ghostscript"
 
         nlohmann::json to_json() const
         {
@@ -54,6 +55,8 @@ namespace uniconv::core
                 j["version"] = *version;
             if (check)
                 j["check"] = *check;
+            if (install_hint)
+                j["install_hint"] = *install_hint;
             return j;
         }
 
@@ -66,6 +69,8 @@ namespace uniconv::core
                 d.version = j.at("version").get<std::string>();
             if (j.contains("check"))
                 d.check = j.at("check").get<std::string>();
+            if (j.contains("install_hint"))
+                d.install_hint = j.at("install_hint").get<std::string>();
             return d;
         }
     };
