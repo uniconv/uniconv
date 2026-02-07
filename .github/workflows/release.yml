@@ -45,7 +45,16 @@ jobs:
 
       - name: Install dependencies (macOS)
         if: matrix.platform == 'darwin'
-        run: brew install libmagic
+        run: |
+          curl -fsSL https://astron.com/pub/file/file-5.46.tar.gz -o file.tar.gz
+          tar xzf file.tar.gz
+          cd file-5.46
+          ./configure --prefix=${{ github.workspace }}/libmagic-install \
+            CFLAGS="-arch ${{ matrix.arch == 'x86_64' && 'x86_64' || 'arm64' }}" \
+            LDFLAGS="-arch ${{ matrix.arch == 'x86_64' && 'x86_64' || 'arm64' }}" \
+            --host=${{ matrix.arch == 'x86_64' && 'x86_64-apple-darwin' || 'aarch64-apple-darwin' }}
+          make -j$(sysctl -n hw.ncpu)
+          make install
 
       - name: Install dependencies (Windows)
         if: matrix.platform == 'windows'
@@ -54,7 +63,11 @@ jobs:
       - name: Build
         run: |
           mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_flags }} ${{ matrix.platform == 'windows' && format('-DCMAKE_TOOLCHAIN_FILE={0}/scripts/buildsystems/vcpkg.cmake', env.VCPKG_INSTALLATION_ROOT) || '' }} ..
+          cmake -DCMAKE_BUILD_TYPE=Release \
+            ${{ matrix.cmake_flags }} \
+            ${{ matrix.platform == 'darwin' && format('-DCMAKE_PREFIX_PATH={0}/libmagic-install', github.workspace) || '' }} \
+            ${{ matrix.platform == 'windows' && format('-DCMAKE_TOOLCHAIN_FILE={0}/scripts/buildsystems/vcpkg.cmake', env.VCPKG_INSTALLATION_ROOT) || '' }} \
+            ..
           cmake --build . --config Release
 
       - name: Package (Unix)
