@@ -46,7 +46,7 @@ jobs:
           tar xzf file.tar.gz
           cd file-5.46
           ./configure --prefix=${{ github.workspace }}/libmagic-install \
-            --enable-static --disable-shared --disable-bzlib --disable-xzlib --disable-zlib --disable-lzlib
+            --enable-static --disable-shared --disable-bzlib --disable-xzlib --disable-zlib --disable-lzlib --disable-zstdlib
           make -j$(nproc)
           make install
 
@@ -57,7 +57,7 @@ jobs:
           tar xzf file.tar.gz
           cd file-5.46
           ./configure --prefix=${{ github.workspace }}/libmagic-install \
-            --enable-static --disable-shared --disable-bzlib --disable-xzlib --disable-zlib --disable-lzlib \
+            --enable-static --disable-shared --disable-bzlib --disable-xzlib --disable-zlib --disable-lzlib --disable-zstdlib \
             CFLAGS="-arch ${{ matrix.arch == 'x86_64' && 'x86_64' || 'arm64' }}" \
             LDFLAGS="-arch ${{ matrix.arch == 'x86_64' && 'x86_64' || 'arm64' }}" \
             --host=${{ matrix.arch == 'x86_64' && 'x86_64-apple-darwin' || 'aarch64-apple-darwin' }}
