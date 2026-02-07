@@ -71,6 +71,7 @@ struct Pipeline {
     std::filesystem::path source;                    // Input file
     std::vector<PipelineStage> stages;               // Sequential stages
     CoreOptions core_options;                        // Global options
+    std::optional<std::string> input_format;         // Format hint for stdin/generators
 
     bool empty() const { return stages.empty(); }
     size_t stage_count() const { return stages.size(); }
@@ -153,6 +154,9 @@ struct Pipeline {
         j["source"] = source.string();
         j["stage_count"] = stages.size();
         j["core_options"] = core_options.to_json();
+        if (input_format) {
+            j["input_format"] = *input_format;
+        }
         j["stages"] = nlohmann::json::array();
         for (const auto& stage : stages) {
             j["stages"].push_back(stage.to_json());

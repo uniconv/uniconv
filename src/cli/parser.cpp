@@ -22,7 +22,11 @@ namespace uniconv::cli
                    "  uniconv photo.heic \"jpg | ascii\"              # Multi-stage pipeline\n"
                    "  uniconv -o out.png photo.heic \"png\"           # Specify output path\n"
                    "  uniconv -o ./out -r ./photos \"jpg\"            # Batch convert directory\n"
-                   "  uniconv watch ./incoming \"jpg\"                # Watch directory for changes");
+                   "  uniconv watch ./incoming \"jpg\"                # Watch directory for changes\n"
+                   "\nStdin & Generator:\n"
+                   "  echo \"hello\" | uniconv - \"translate | txt\"    # Pipe from stdin (auto-detects format)\n"
+                   "  cat data.csv | uniconv - \"json\"               # Convert piped CSV to JSON\n"
+                   "  uniconv - \"random-noise --width 512 | png\"    # Generator (no input file)");
 
         setup_main_options(app, args);
         setup_subcommands(app, args);
@@ -67,7 +71,11 @@ namespace uniconv::cli
                    "  uniconv photo.heic \"jpg | ascii\"              # Multi-stage pipeline\n"
                    "  uniconv -o out.png photo.heic \"png\"           # Specify output path\n"
                    "  uniconv -o ./out -r ./photos \"jpg\"            # Batch convert directory\n"
-                   "  uniconv watch ./incoming \"jpg\"                # Watch directory for changes");
+                   "  uniconv watch ./incoming \"jpg\"                # Watch directory for changes\n"
+                   "\nStdin & Generator:\n"
+                   "  echo \"hello\" | uniconv - \"translate | txt\"    # Pipe from stdin (auto-detects format)\n"
+                   "  cat data.csv | uniconv - \"json\"               # Convert piped CSV to JSON\n"
+                   "  uniconv - \"random-noise --width 512 | png\"    # Generator (no input file)");
         ParsedArgs dummy;
         setup_main_options(app, dummy);
         setup_subcommands(app, dummy);
@@ -94,6 +102,10 @@ namespace uniconv::cli
 
         // Preset
         app.add_option("-p,--preset", args.preset, "Use preset");
+
+        // Input format hint (overrides auto-detection for stdin)
+        app.add_option("--input-format", args.input_format, "Override auto-detected input format for stdin")
+            ->type_name("FORMAT");
 
         // Positional arguments: <source> "<pipeline>"
         app.add_option("input", args.input, "Input file or directory")

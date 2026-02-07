@@ -72,9 +72,8 @@ namespace uniconv::core
                                     size_t total_nodes,
                                     PipelineResult &result);
 
-        // Generate temp file path for intermediate results
+        // Generate temp file path: run_dir / s{N}_e{M}.{target}
         std::filesystem::path generate_temp_path(
-            const std::filesystem::path &input,
             const std::string &target,
             size_t stage_index,
             size_t element_index);
@@ -92,8 +91,8 @@ namespace uniconv::core
             const std::string &target,
             const std::string &transform_suffix);
 
-        // Extract transform name from intermediate temp filename
-        std::string extract_transform_from_temp(const std::filesystem::path &temp_path);
+        // Check if a temp path is from our run directory
+        bool is_temp_path(const std::filesystem::path &path) const;
 
         // Get the input path for a node (resolve from predecessor or source)
         std::filesystem::path get_node_input(const ExecutionNode &node,

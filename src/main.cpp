@@ -14,10 +14,22 @@
 #include "core/output/output.h"
 #include "core/output/console_output.h"
 #include "core/output/json_output.h"
+#include "utils/mime_detector.h"
 #include <uniconv/version.h>
 #include <csignal>
+#include <fstream>
 #include <iostream>
 #include <memory>
+
+#ifdef _WIN32
+#include <io.h>
+#define ISATTY _isatty
+#define FILENO _fileno
+#else
+#include <unistd.h>
+#define ISATTY isatty
+#define FILENO fileno
+#endif
 
 using namespace uniconv;
 
@@ -200,8 +212,46 @@ int main(int argc, char **argv)
             // Source comes from args.input
             std::filesystem::path source = args.input.value_or("");
             std::string pipeline_str = args.pipeline;
+            std::filesystem::path stdin_temp_file; // track for cleanup
 
-            if (source.empty())
+            if (source == "-")
+            {
+                if (!ISATTY(FILENO(stdin)))
+                {
+                    // Piped data -> stdin mode: read into memory then materialize
+                    std::string stdin_data(
+                        (std::istreambuf_iterator<char>(std::cin)),
+                        std::istreambuf_iterator<char>());
+
+                    // Auto-detect format via libmagic (--input-format overrides)
+                    std::string ext;
+                    if (args.input_format.has_value())
+                    {
+                        ext = *args.input_format;
+                    }
+                    else
+                    {
+                        utils::MimeDetector detector;
+                        ext = detector.detect_extension(stdin_data.data(), stdin_data.size());
+                    }
+
+                    auto temp_dir = std::filesystem::temp_directory_path() / "uniconv";
+                    std::filesystem::create_directories(temp_dir);
+                    stdin_temp_file = temp_dir / ("stdin." + ext);
+
+                    std::ofstream ofs(stdin_temp_file, std::ios::binary);
+                    ofs.write(stdin_data.data(), static_cast<std::streamsize>(stdin_data.size()));
+                    ofs.close();
+
+                    source = stdin_temp_file;
+                }
+                else
+                {
+                    // TTY -> generator mode: no input file
+                    source = "";
+                }
+            }
+            else if (source.empty())
             {
                 output->error("No input file or directory specified");
                 output->info("Usage: uniconv <source> \"<pipeline>\"");
@@ -223,8 +273,19 @@ int main(int argc, char **argv)
                 return 1;
             }
 
+            // Thread input_format from CLI into pipeline
+            if (args.input_format.has_value())
+                parse_result.pipeline.input_format = *args.input_format;
+
             core::PipelineExecutor executor(engine);
             auto result = executor.execute(parse_result.pipeline, output);
+
+            // Cleanup stdin temp file
+            if (!stdin_temp_file.empty())
+            {
+                std::error_code ec;
+                std::filesystem::remove(stdin_temp_file, ec);
+            }
 
             if (args.core_options.json_output)
             {

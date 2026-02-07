@@ -97,6 +97,8 @@ add_executable(uniconv
     src/utils/version_utils.cpp
     src/utils/http_utils.h
     src/utils/http_utils.cpp
+    src/utils/mime_detector.h
+    src/utils/mime_detector.cpp
     src/core/registry_types.h
     src/core/dependency_checker.h
     src/core/dependency_checker.cpp
@@ -117,11 +119,14 @@ target_include_directories(uniconv PRIVATE
 )
 
 find_package(Threads REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBMAGIC REQUIRED IMPORTED_TARGET libmagic)
 
 target_link_libraries(uniconv PRIVATE
     CLI11::CLI11
     nlohmann_json::nlohmann_json
     Threads::Threads
+    PkgConfig::LIBMAGIC
 )
 
 if(UNICONV_ENABLE_WARNINGS)

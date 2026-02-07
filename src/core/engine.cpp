@@ -24,8 +24,10 @@ namespace uniconv::core
 
     Result Engine::execute(const Request &request)
     {
-        // Check if source exists
-        if (!std::filesystem::exists(request.source))
+        bool is_generator = request.source.empty();
+
+        // Check if source exists (skip for generators)
+        if (!is_generator && !std::filesystem::exists(request.source))
         {
             return Result::failure(
                 request.target,
@@ -34,15 +36,24 @@ namespace uniconv::core
         }
 
         // Get input file info
-        auto input_format = utils::detect_format(request.source);
-        size_t input_size = std::filesystem::file_size(request.source);
+        std::string input_format;
+        size_t input_size = 0;
+        if (is_generator)
+        {
+            input_format = request.input_format.value_or("");
+        }
+        else
+        {
+            input_format = utils::detect_format(request.source);
+            input_size = std::filesystem::file_size(request.source);
+        }
 
         // Build resolution context with full information
         ResolutionContext ctx;
         ctx.input_format = input_format;
         ctx.target = request.target;
         ctx.explicit_plugin = request.plugin;
-        ctx.input_types = utils::detect_input_types(input_format);
+        ctx.input_types = is_generator ? std::vector<DataType>{} : utils::detect_input_types(input_format);
 
         // Find appropriate plugin using the enhanced resolver
         auto *plugin = plugin_manager_->find_plugin(ctx);
@@ -55,8 +66,8 @@ namespace uniconv::core
                 "No plugin found for: " + input_format + " -> " + request.target);
         }
 
-        // Check if plugin supports the input format
-        if (!plugin->supports_input(input_format))
+        // Check if plugin supports the input format (skip for generators)
+        if (!is_generator && !plugin->supports_input(input_format))
         {
             return Result::failure(
                 request.target,
@@ -252,7 +263,8 @@ namespace uniconv::core
             // If output is a directory, put file in it
             if (std::filesystem::is_directory(output))
             {
-                auto filename = request.source.stem().string() + "." + target_format;
+                auto stem = request.source.empty() ? "generated" : request.source.stem().string();
+                auto filename = stem + "." + target_format;
                 return output / filename;
             }
 
@@ -260,6 +272,12 @@ namespace uniconv::core
         }
 
         // Default: same directory, same name, new extension
+        if (request.source.empty())
+        {
+            // Generator mode: output to current directory
+            return std::filesystem::current_path() / ("generated." + target_format);
+        }
+
         auto output = request.source;
         output.replace_extension(target_format);
 

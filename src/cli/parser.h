@@ -40,6 +40,9 @@ struct ParsedArgs {
     std::string subcommand;                // For preset/plugin/config
     std::vector<std::string> subcommand_args;
 
+    // Input format hint (for stdin/generators)
+    std::optional<std::string> input_format;
+
     // Flags
     bool interactive = false;
     bool no_interactive = false;

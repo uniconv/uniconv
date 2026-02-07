@@ -6,13 +6,25 @@
 #include <numeric>
 #include <sstream>
 
+#ifdef _WIN32
+#include <process.h>
+#define GETPID _getpid
+#else
+#include <unistd.h>
+#define GETPID getpid
+#endif
+
 namespace uniconv::core
 {
 
     PipelineExecutor::PipelineExecutor(std::shared_ptr<Engine> engine)
-        : engine_(std::move(engine)), temp_dir_(std::filesystem::temp_directory_path() / "uniconv")
+        : engine_(std::move(engine))
     {
-        // Ensure temp directory exists
+        // Per-run temp directory: /tmp/uniconv/run_<pid>_<timestamp>/
+        auto ts = std::chrono::steady_clock::now().time_since_epoch().count();
+        std::ostringstream dir_name;
+        dir_name << "run_" << GETPID() << "_" << ts;
+        temp_dir_ = std::filesystem::temp_directory_path() / "uniconv" / dir_name.str();
         std::filesystem::create_directories(temp_dir_);
     }
 
@@ -191,14 +203,8 @@ namespace uniconv::core
         // Check if content was actually copied (not just path)
         std::string ext = node.input.extension().string();
         std::string format;
-        if (ext == ".tmp")
-        {
-            format = extract_transform_from_temp(node.input);
-        }
-        else if (!ext.empty() && ext[0] == '.')
-        {
+        if (!ext.empty() && ext[0] == '.')
             format = ext.substr(1);
-        }
         node.content_copied_to_clipboard = is_clipboard_content_copyable(format);
 
         // Record stage result
@@ -249,7 +255,6 @@ namespace uniconv::core
 
         // Always output to temp during execution phase
         node.temp_output = generate_temp_path(
-            node.input,
             node.target,
             node.stage_idx,
             node.element_idx);
@@ -263,14 +268,21 @@ namespace uniconv::core
         request.core_options.output = node.temp_output;
         request.plugin_options = node.plugin_options;
 
-        // For temp files, extract the actual format from filename pattern
-        if (node.input.extension() == ".tmp")
+        // For temp files from previous stages, use extension as format hint
+        if (is_temp_path(node.input))
         {
-            std::string format = extract_transform_from_temp(node.input);
-            if (!format.empty())
-            {
-                request.input_format = format;
-            }
+            std::string ext = node.input.extension().string();
+            if (!ext.empty() && ext[0] == '.')
+                ext = ext.substr(1);
+            if (!ext.empty())
+                request.input_format = ext;
+        }
+
+        // For first-stage nodes, use pipeline.input_format if not already set
+        if (!request.input_format.has_value() && node.stage_idx == 0 &&
+            pipeline.input_format.has_value())
+        {
+            request.input_format = pipeline.input_format;
         }
 
         // Execute through engine
@@ -392,10 +404,10 @@ namespace uniconv::core
             else if (is_terminal || only_clipboard_consumer)
             {
                 // Terminal node or node that only feeds clipboard - this is a "final" output
-                std::string transform = extract_transform_from_temp(node.temp_output);
-
-                // Get actual output format (handles transformations like "gray")
                 std::string output_format = get_output_format(node, graph);
+
+                // If target is a transformation (not a file format), use it as suffix
+                std::string transform = is_known_file_format(node.target) ? "" : node.target;
 
                 if (pipeline.core_options.output.has_value())
                 {
@@ -527,18 +539,15 @@ namespace uniconv::core
     }
 
     std::filesystem::path PipelineExecutor::generate_temp_path(
-        const std::filesystem::path &input,
         const std::string &target,
         size_t stage_index,
         size_t element_index)
     {
-        // Format: temp_dir / "stage{idx}_elem{idx}_{target}_{input_stem}.tmp"
+        // Format: run_dir / "s{idx}_e{idx}.{target}"
         std::ostringstream filename;
-        filename << "stage" << stage_index
-                 << "_elem" << element_index
-                 << "_" << target
-                 << "_" << input.stem().string()
-                 << ".tmp";
+        filename << "s" << stage_index
+                 << "_e" << element_index
+                 << "." << target;
 
         return temp_dir_ / filename.str();
     }
@@ -551,7 +560,8 @@ namespace uniconv::core
         // Output to current directory
         std::filesystem::path output = std::filesystem::current_path();
 
-        output /= original_source.stem();
+        std::string stem = original_source.empty() ? "generated" : original_source.stem().string();
+        output /= stem;
         if (!transform_suffix.empty())
         {
             output += "_" + transform_suffix;
@@ -589,7 +599,8 @@ namespace uniconv::core
         if (is_directory)
         {
             // Directory: use original stem + transform suffix + target extension
-            std::filesystem::path output = out_path / original_source.stem();
+            std::string stem = original_source.empty() ? "generated" : original_source.stem().string();
+            std::filesystem::path output = out_path / stem;
             if (!transform_suffix.empty())
             {
                 output += "_" + transform_suffix;
@@ -611,50 +622,23 @@ namespace uniconv::core
         }
     }
 
-    std::string PipelineExecutor::extract_transform_from_temp(
-        const std::filesystem::path &temp_path)
+    bool PipelineExecutor::is_temp_path(const std::filesystem::path &path) const
     {
-        // Pattern: stage{N}_elem{M}_{target}_{stem}.tmp
-        // We want to extract {target}
-        std::string stem = temp_path.stem().string();
-
-        // Check for temp file pattern: starts with "stage" followed by digits
-        if (stem.substr(0, 5) != "stage")
-        {
-            return "";
-        }
-
-        // Find positions: stage{N}_elem{M}_{target}_{rest}
-        size_t first_underscore = stem.find('_');
-        if (first_underscore == std::string::npos)
-            return "";
-
-        size_t second_underscore = stem.find('_', first_underscore + 1);
-        if (second_underscore == std::string::npos)
-            return "";
-
-        size_t third_underscore = stem.find('_', second_underscore + 1);
-        if (third_underscore == std::string::npos)
-            return "";
-
-        // Extract transform (between second and third underscore)
-        return stem.substr(second_underscore + 1, third_underscore - second_underscore - 1);
+        // Check if path is inside our per-run temp directory
+        auto path_str = path.string();
+        auto dir_str = temp_dir_.string();
+        return path_str.size() > dir_str.size() &&
+               path_str.compare(0, dir_str.size(), dir_str) == 0;
     }
 
     void PipelineExecutor::cleanup_temp_files()
     {
-        // Remove all .tmp files from temp directory
+        // Remove the entire per-run temp directory
         try
         {
             if (std::filesystem::exists(temp_dir_))
             {
-                for (const auto &entry : std::filesystem::directory_iterator(temp_dir_))
-                {
-                    if (entry.path().extension() == ".tmp")
-                    {
-                        std::filesystem::remove(entry.path());
-                    }
-                }
+                std::filesystem::remove_all(temp_dir_);
             }
         }
         catch (const std::filesystem::filesystem_error &)
@@ -736,23 +720,14 @@ namespace uniconv::core
             return node.target;
         }
 
-        // Check the actual output file's extension from the plugin.
-        // Extract operations (e.g., "ascii") produce a different format than
-        // the input, and the plugin's output path reflects the real format.
+        // Check the actual output file's extension from the plugin
         if (!node.temp_output.empty())
         {
             std::string out_ext = node.temp_output.extension().string();
-            if (!out_ext.empty() && out_ext != ".tmp")
-            {
-                if (out_ext[0] == '.')
-                {
-                    out_ext = out_ext.substr(1);
-                }
-                if (is_known_file_format(out_ext))
-                {
-                    return out_ext;
-                }
-            }
+            if (!out_ext.empty() && out_ext[0] == '.')
+                out_ext = out_ext.substr(1);
+            if (!out_ext.empty() && is_known_file_format(out_ext))
+                return out_ext;
         }
 
         // Otherwise, target is a transformation (e.g., "gray", "resize")
@@ -760,7 +735,6 @@ namespace uniconv::core
         std::filesystem::path input_path = node.input;
         if (input_path.empty() && !node.input_nodes.empty())
         {
-            // Get from predecessor
             const auto &pred = graph.node(node.input_nodes[0]);
             input_path = pred.temp_output;
         }
@@ -769,25 +743,18 @@ namespace uniconv::core
             input_path = graph.source();
         }
 
-        // Extract format from input path
         std::string ext = input_path.extension().string();
-        if (ext == ".tmp")
-        {
-            // Temp file - extract format from filename pattern
-            std::string format = extract_transform_from_temp(input_path);
-            if (!format.empty() && is_known_file_format(format))
-            {
-                return format;
-            }
-            // Fallback: look at original source
-            ext = graph.source().extension().string();
-        }
-
-        // Remove leading dot
         if (!ext.empty() && ext[0] == '.')
-        {
             ext = ext.substr(1);
-        }
+
+        // If extension is a known format, use it; otherwise fallback to source
+        if (!ext.empty() && is_known_file_format(ext))
+            return ext;
+
+        // Final fallback: original source extension
+        ext = graph.source().extension().string();
+        if (!ext.empty() && ext[0] == '.')
+            ext = ext.substr(1);
 
         return ext;
     }

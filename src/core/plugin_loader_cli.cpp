@@ -374,8 +374,12 @@ namespace uniconv::core
         std::vector<std::string> args;
 
         // Universal arguments (all plugins receive these)
-        args.push_back("--input");
-        args.push_back(request.source.string());
+        // Skip --input for generator mode (empty source)
+        if (!request.source.empty())
+        {
+            args.push_back("--input");
+            args.push_back(request.source.string());
+        }
 
         args.push_back("--target");
         args.push_back(request.target);
@@ -639,7 +643,7 @@ namespace uniconv::core
 
         // Parse and return result
         auto result = parse_result(request, exec_result);
-        result.input_size = std::filesystem::file_size(request.source);
+        result.input_size = request.source.empty() ? 0 : std::filesystem::file_size(request.source);
         return result;
     }
 
