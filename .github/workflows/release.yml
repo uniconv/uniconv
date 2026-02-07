@@ -41,7 +41,14 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential libmagic-dev
+          sudo apt-get install -y cmake build-essential
+          curl -fsSL https://astron.com/pub/file/file-5.46.tar.gz -o file.tar.gz
+          tar xzf file.tar.gz
+          cd file-5.46
+          ./configure --prefix=${{ github.workspace }}/libmagic-install \
+            --enable-static --disable-shared
+          make -j$(nproc)
+          make install
 
       - name: Install dependencies (macOS)
         if: matrix.platform == 'darwin'
@@ -50,6 +57,7 @@ jobs:
           tar xzf file.tar.gz
           cd file-5.46
           ./configure --prefix=${{ github.workspace }}/libmagic-install \
+            --enable-static --disable-shared \
             CFLAGS="-arch ${{ matrix.arch == 'x86_64' && 'x86_64' || 'arm64' }}" \
             LDFLAGS="-arch ${{ matrix.arch == 'x86_64' && 'x86_64' || 'arm64' }}" \
             --host=${{ matrix.arch == 'x86_64' && 'x86_64-apple-darwin' || 'aarch64-apple-darwin' }}
@@ -64,7 +72,7 @@ jobs:
         shell: bash
         run: |
           CMAKE_EXTRA="${{ matrix.cmake_flags }}"
-          if [ "${{ matrix.platform }}" = "darwin" ]; then
+          if [ "${{ matrix.platform }}" = "linux" ] || [ "${{ matrix.platform }}" = "darwin" ]; then
             CMAKE_EXTRA="$CMAKE_EXTRA -DCMAKE_PREFIX_PATH=${{ github.workspace }}/libmagic-install"
           fi
           if [ "${{ matrix.platform }}" = "windows" ]; then
