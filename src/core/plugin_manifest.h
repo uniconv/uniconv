@@ -100,7 +100,14 @@ namespace uniconv::core
             PluginOptionDef opt;
             opt.name = j.at("name").get<std::string>();
             opt.type = j.value("type", "string");
-            opt.default_value = j.value("default", "");
+            if (j.contains("default")) {
+                const auto& val = j.at("default");
+                if (val.is_string()) {
+                    opt.default_value = val.get<std::string>();
+                } else if (!val.is_null()) {
+                    opt.default_value = val.dump();
+                }
+            }
             opt.description = j.value("description", "");
             return opt;
         }

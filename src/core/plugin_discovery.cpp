@@ -110,7 +110,7 @@ std::vector<PluginManifest> PluginDiscovery::discover_in_dir(const std::filesyst
 
     try {
         for (const auto& entry : std::filesystem::directory_iterator(dir)) {
-            if (entry.is_directory()) {
+            if (std::filesystem::is_directory(entry.path())) {
                 auto manifest = load_manifest(entry.path());
                 if (manifest) {
                     manifests.push_back(std::move(*manifest));
