@@ -222,6 +222,35 @@ namespace uniconv::core
         return results;
     }
 
+    std::vector<std::pair<Dependency, DependencyCheckResult>>
+    DependencyChecker::check_all(const std::vector<Dependency> &deps,
+                                  const std::filesystem::path &python_bin) const
+    {
+        std::vector<std::pair<Dependency, DependencyCheckResult>> results;
+        results.reserve(deps.size());
+
+        // Use venv python for Python deps if the binary exists
+        std::string python_cmd = "python3";
+        if (!python_bin.empty() && std::filesystem::exists(python_bin))
+        {
+            python_cmd = python_bin.string();
+        }
+
+        for (const auto &dep : deps)
+        {
+            if (dep.type == "python")
+            {
+                results.emplace_back(dep, check_python(dep, python_cmd));
+            }
+            else
+            {
+                results.emplace_back(dep, check(dep));
+            }
+        }
+
+        return results;
+    }
+
     void DependencyChecker::print_warnings(
         const std::vector<std::pair<Dependency, DependencyCheckResult>> &results)
     {
@@ -318,11 +347,12 @@ namespace uniconv::core
         return result;
     }
 
-    DependencyCheckResult DependencyChecker::check_python(const Dependency &dep) const
+    DependencyCheckResult DependencyChecker::check_python(const Dependency &dep,
+                                                           const std::string &python_cmd) const
     {
         DependencyCheckResult result;
 
-        auto output = run_capture_command("python3", {"-m", "pip", "show", dep.name});
+        auto output = run_capture_command(python_cmd, {"-m", "pip", "show", dep.name});
 
         if (output.empty())
         {

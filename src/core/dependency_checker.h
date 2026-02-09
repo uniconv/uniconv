@@ -1,6 +1,7 @@
 #pragma once
 
 #include "plugin_manifest.h"
+#include <filesystem>
 #include <string>
 #include <utility>
 #include <vector>
@@ -25,6 +26,11 @@ namespace uniconv::core
         std::vector<std::pair<Dependency, DependencyCheckResult>>
         check_all(const std::vector<Dependency> &deps) const;
 
+        // Check all dependencies using a plugin's virtualenv for Python checks
+        std::vector<std::pair<Dependency, DependencyCheckResult>>
+        check_all(const std::vector<Dependency> &deps,
+                  const std::filesystem::path &python_bin) const;
+
         // Print warnings for unsatisfied dependencies to stderr
         static void print_warnings(
             const std::vector<std::pair<Dependency, DependencyCheckResult>> &results);
@@ -32,7 +38,8 @@ namespace uniconv::core
     private:
         DependencyCheckResult check_custom(const Dependency &dep) const;
         DependencyCheckResult check_system(const Dependency &dep) const;
-        DependencyCheckResult check_python(const Dependency &dep) const;
+        DependencyCheckResult check_python(const Dependency &dep,
+                                           const std::string &python_cmd = "python3") const;
         DependencyCheckResult check_node(const Dependency &dep) const;
 
         // Run a command and return exit code

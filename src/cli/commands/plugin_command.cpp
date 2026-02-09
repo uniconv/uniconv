@@ -906,7 +906,11 @@ namespace uniconv::cli::commands
         if (!manifest->dependencies.empty())
         {
             // Check all dependencies (system, python, node)
-            auto dep_results = dep_checker_.check_all(manifest->dependencies);
+            // Use plugin's virtualenv python for Python dependency checks
+            auto env = dep_installer_.get_env(manifest->name);
+            auto dep_results = (env && env->has_python_env())
+                ? dep_checker_.check_all(manifest->dependencies, env->python_bin())
+                : dep_checker_.check_all(manifest->dependencies);
 
             std::vector<std::string> missing;
             for (const auto& [dep_info, check_result] : dep_results)
