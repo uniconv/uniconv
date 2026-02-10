@@ -197,8 +197,9 @@ namespace uniconv::core
             opt_ctx.core_options["quiet"] = "true";
 
         // Parse plugin options (key=value pairs or --key value or flags)
-        for (const auto &opt : request.plugin_options)
+        for (size_t i = 0; i < request.plugin_options.size(); ++i)
         {
+            const auto &opt = request.plugin_options[i];
             auto eq_pos = opt.find('=');
             if (eq_pos != std::string::npos)
             {
@@ -211,15 +212,23 @@ namespace uniconv::core
                     key = key.substr(1);
                 opt_ctx.plugin_options[key] = value;
             }
-            else
+            else if (opt.starts_with("-"))
             {
-                // Boolean flag
                 std::string key = opt;
                 if (key.starts_with("--"))
                     key = key.substr(2);
                 else if (key.starts_with("-"))
                     key = key.substr(1);
-                opt_ctx.plugin_options[key] = "true";
+                // Check if next token is a value (not a flag)
+                if (i + 1 < request.plugin_options.size() &&
+                    !request.plugin_options[i + 1].starts_with("-"))
+                {
+                    opt_ctx.plugin_options[key] = request.plugin_options[++i];
+                }
+                else
+                {
+                    opt_ctx.plugin_options[key] = "true";
+                }
             }
         }
 
