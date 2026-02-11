@@ -105,39 +105,40 @@ namespace uniconv::core
     }
 
     plugins::IPlugin *PluginResolver::find_by_explicit(
-        const std::string &scope,
+        const std::string &plugin_specifier,
         const std::string &target,
         const std::vector<std::unique_ptr<plugins::IPlugin>> &plugins) const
     {
-        auto lower_scope = to_lower(scope);
+        auto lower_spec = to_lower(plugin_specifier);
         auto lower_target = to_lower(target);
 
-        // Check if scope contains @ (scope@name format)
-        auto at_pos = lower_scope.find('@');
+        // Check if specifier contains / (scope/name format)
+        auto slash_pos = lower_spec.find('/');
         std::string match_scope, match_name;
-        if (at_pos != std::string::npos)
+        if (slash_pos != std::string::npos)
         {
-            match_scope = lower_scope.substr(0, at_pos);
-            match_name = lower_scope.substr(at_pos + 1);
+            // scope/name: match both scope and name
+            match_scope = lower_spec.substr(0, slash_pos);
+            match_name = lower_spec.substr(slash_pos + 1);
         }
 
         for (const auto &plugin : plugins)
         {
             auto info = plugin->info();
-            bool scope_match;
+            bool plugin_match;
             if (!match_name.empty())
             {
-                // scope@name: match both scope and name
-                scope_match = to_lower(info.scope) == match_scope &&
-                              to_lower(info.name) == match_name;
+                // scope/name: match both scope and name
+                plugin_match = to_lower(info.scope) == match_scope &&
+                               to_lower(info.name) == match_name;
             }
             else
             {
-                // scope-only: match scope
-                scope_match = to_lower(info.scope) == lower_scope;
+                // name-only: match by plugin name
+                plugin_match = to_lower(info.name) == lower_spec;
             }
 
-            if (scope_match && plugin->supports_target(lower_target))
+            if (plugin_match && plugin->supports_target(lower_target))
             {
                 return plugin.get();
             }

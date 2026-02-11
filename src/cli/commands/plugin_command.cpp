@@ -327,9 +327,9 @@ namespace uniconv::cli::commands
                 return 1;
             }
 
-            // Destination in user plugins directory
+            // Destination in user plugins directory: scope/name
             auto user_plugins = core::PluginDiscovery::get_user_plugin_dir();
-            auto dest_path = user_plugins / manifest->name;
+            auto dest_path = user_plugins / manifest->scope / manifest->name;
 
             // Check if already installed
             if (std::filesystem::exists(dest_path))
@@ -502,11 +502,10 @@ namespace uniconv::cli::commands
             return 1;
         }
 
-        // Check if already installed
+        // Check if already installed (via installed.json)
         auto user_plugins = core::PluginDiscovery::get_user_plugin_dir();
-        auto dest_dir = user_plugins / name;
 
-        if (std::filesystem::exists(dest_dir) && !args.core_options.force)
+        if (!args.core_options.force)
         {
             auto existing = installed_.get(name);
             if (existing && existing->version == release->version)
@@ -519,17 +518,37 @@ namespace uniconv::cli::commands
 
         output_->info("Downloading " + name + "@" + release->version + "...");
 
-        // Download and extract
-        auto result = client->download_and_extract(*artifact, dest_dir);
+        // Download to a staging directory first (we need the manifest to determine scope)
+        auto staging_dir = user_plugins / (".staging-" + name);
+        auto result = client->download_and_extract(*artifact, staging_dir);
         if (!result)
         {
             output_->error("Failed to download or extract plugin");
             output_->info("This may be caused by a network error or invalid artifact");
+            std::filesystem::remove_all(staging_dir);
             return 1;
         }
 
-        // Load manifest to get full dependency info
-        auto manifest = discovery_.load_manifest(dest_dir);
+        // Load manifest to determine scope and get dependency info
+        auto manifest = discovery_.load_manifest(staging_dir);
+        if (!manifest)
+        {
+            output_->error("Downloaded plugin has no valid manifest");
+            std::filesystem::remove_all(staging_dir);
+            return 1;
+        }
+
+        // Move to final location: scope/name
+        auto dest_dir = user_plugins / manifest->scope / manifest->name;
+        if (std::filesystem::exists(dest_dir))
+        {
+            std::filesystem::remove_all(dest_dir);
+        }
+        std::filesystem::create_directories(dest_dir.parent_path());
+        std::filesystem::rename(staging_dir, dest_dir);
+
+        // Re-load manifest from final location
+        manifest = discovery_.load_manifest(dest_dir);
 
         // Install dependencies
         bool deps_failed = false;

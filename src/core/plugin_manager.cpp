@@ -60,23 +60,23 @@ namespace uniconv::core
                 }
             }
 
-            // Match by explicit plugin (@plugin syntax)
+            // Match by explicit plugin (target@plugin or target@scope/plugin syntax)
             if (!matches && context.explicit_plugin)
             {
                 auto ep = to_lower(*context.explicit_plugin);
-                auto at_pos = ep.find('@');
-                if (at_pos != std::string::npos)
+                auto slash_pos = ep.find('/');
+                if (slash_pos != std::string::npos)
                 {
-                    // scope@name format (e.g., "geo@postgis")
-                    auto ep_scope = ep.substr(0, at_pos);
-                    auto ep_name = ep.substr(at_pos + 1);
+                    // scope/name format (e.g., "geo/postgis")
+                    auto ep_scope = ep.substr(0, slash_pos);
+                    auto ep_name = ep.substr(slash_pos + 1);
                     if (to_lower(it->scope) == ep_scope && to_lower(it->name) == ep_name)
                         matches = true;
                 }
                 else
                 {
-                    // scope-only format (e.g., "geo")
-                    if (to_lower(it->scope) == ep)
+                    // name-only format (e.g., "postgis")
+                    if (to_lower(it->name) == ep)
                         matches = true;
                 }
             }

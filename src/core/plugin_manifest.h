@@ -167,12 +167,12 @@ namespace uniconv::core
         std::filesystem::path manifest_path; // Where this manifest was loaded from
         std::filesystem::path plugin_dir;    // Directory containing the plugin
 
-        // Computed ID: scope@name for 3rd-party, name for official (uniconv) plugins
+        // Computed ID: scope/name for 3rd-party, name for official (uniconv) plugins
         std::string id() const
         {
             if (scope == "uniconv" || scope == name)
                 return name;
-            return scope + "@" + name;
+            return scope + "/" + name;
         }
 
         nlohmann::json to_json() const

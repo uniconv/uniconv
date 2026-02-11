@@ -53,7 +53,7 @@ namespace uniconv::core
 
         // Resolution steps (in priority order)
         plugins::IPlugin *find_by_explicit(
-            const std::string &scope,
+            const std::string &plugin_specifier,
             const std::string &target,
             const std::vector<std::unique_ptr<plugins::IPlugin>> &plugins) const;
 

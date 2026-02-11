@@ -113,9 +113,14 @@ std::vector<PluginManifest> PluginDiscovery::discover_in_dir(const std::filesyst
     }
 
     try {
-        for (const auto& entry : std::filesystem::directory_iterator(dir)) {
-            if (std::filesystem::is_directory(entry.path())) {
-                auto manifest = load_manifest(entry.path());
+        // Two-level scan: plugins/<scope>/<name>/plugin.json
+        for (const auto& scope_entry : std::filesystem::directory_iterator(dir)) {
+            if (!std::filesystem::is_directory(scope_entry.path())) continue;
+
+            for (const auto& plugin_entry : std::filesystem::directory_iterator(scope_entry.path())) {
+                if (!std::filesystem::is_directory(plugin_entry.path())) continue;
+
+                auto manifest = load_manifest(plugin_entry.path());
                 if (manifest) {
                     manifests.push_back(std::move(*manifest));
                 }
