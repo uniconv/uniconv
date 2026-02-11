@@ -69,8 +69,13 @@ namespace uniconv::cli::commands
         // Discover all plugins
         auto manifests = discovery_.discover_all();
 
-        // Also get built-in plugins from plugin manager
-        auto builtin = plugin_manager_->list_plugins();
+        // Get built-in plugins only (not manifest-discovered ones)
+        std::vector<core::PluginInfo> builtin;
+        for (const auto &p : plugin_manager_->list_plugins())
+        {
+            if (p.builtin)
+                builtin.push_back(p);
+        }
 
         nlohmann::json j = nlohmann::json::array();
 
@@ -768,10 +773,11 @@ namespace uniconv::cli::commands
 
         const auto &name = args.subcommand;
 
-        // First check built-in plugins
-        auto builtin = plugin_manager_->list_plugins();
-        for (const auto &p : builtin)
+        // First check built-in plugins only
+        for (const auto &p : plugin_manager_->list_plugins())
         {
+            if (!p.builtin)
+                continue;
             if (p.id == name || p.scope == name)
             {
                 auto j = p.to_json();
