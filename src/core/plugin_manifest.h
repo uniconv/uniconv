@@ -2,6 +2,7 @@
 
 #include "types.h"
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -145,6 +146,7 @@ namespace uniconv::core
         // Plugin configuration
         std::vector<std::string> targets;       // Supported output targets
         std::vector<std::string> input_formats; // Supported input formats
+        std::map<std::string, std::vector<std::string>> target_input_formats; // Per-target input format overrides
 
         // Data types
         std::vector<DataType> input_types;
@@ -219,6 +221,11 @@ namespace uniconv::core
                 j["output_types"] = output_strs;
             }
 
+            if (!target_input_formats.empty())
+            {
+                j["target_input_formats"] = target_input_formats;
+            }
+
             return j;
         }
 
@@ -239,6 +246,10 @@ namespace uniconv::core
             if (j.contains("input_formats"))
             {
                 m.input_formats = j.at("input_formats").get<std::vector<std::string>>();
+            }
+            if (j.contains("target_input_formats") && j.at("target_input_formats").is_object())
+            {
+                m.target_input_formats = j.at("target_input_formats").get<std::map<std::string, std::vector<std::string>>>();
             }
 
             // Interface
@@ -282,6 +293,7 @@ namespace uniconv::core
             info.output_types = output_types;
             info.version = version;
             info.description = description;
+            info.target_input_formats = target_input_formats;
             info.builtin = false;
             return info;
         }

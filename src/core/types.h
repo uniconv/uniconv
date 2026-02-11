@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -304,6 +305,7 @@ namespace uniconv::core
         std::string scope;                      // Plugin scope: "image-core"
         std::vector<std::string> targets;       // Supported targets
         std::vector<std::string> input_formats; // Supported input formats
+        std::map<std::string, std::vector<std::string>> target_input_formats; // Per-target input format overrides
         std::string version;
         std::string description;
         bool builtin = false;
@@ -338,6 +340,11 @@ namespace uniconv::core
                 for (auto t : output_types)
                     output_strs.push_back(data_type_to_string(t));
                 j["output_types"] = output_strs;
+            }
+
+            if (!target_input_formats.empty())
+            {
+                j["target_input_formats"] = target_input_formats;
             }
 
             return j;
