@@ -55,7 +55,8 @@ uniconv [core옵션] <source> "<target>[@plugin] [옵션] | <target>[@plugin] [�
 
 - `|` = 스테이지 구분
 - `,` = 같은 스테이지 내 병렬 요소
-- `tee` = 다음 스테이지 요소 개수만큼 복제하는 builtin
+- `tee` = 다음 스테이지 요소 개수만큼 복제하는 builtin (fan-out)
+- `collect` = 분기된 결과를 하나로 모으는 builtin (fan-in)
 - `clipboard` = 결과를 시스템 클립보드에 복사
 - `_` (passthrough) = 입력을 그대로 전달
 
@@ -84,6 +85,11 @@ uniconv photo.jpg "png | clipboard"
 
 # 출력 경로 지정
 uniconv -o output.jpg photo.heic "jpg --quality 85"
+
+# stdin/파이프 입력
+echo "hello" | uniconv - "translate | txt"
+cat data.csv | uniconv - "json"
+uniconv - --from-clipboard "png"
 ```
 
 ### 2.3 플러그인 지정
@@ -137,22 +143,26 @@ uniconv photo.jpg "tee | grayscale | clipboard, png"
 
 ### 2.6 스테이지 요소 개수 규칙
 
-| 현재 스테이지 | 다음 스테이지 | 가능 여부     |
-| ------------- | ------------- | ------------- |
-| 1개           | 1개           | ✅            |
-| 1개 (tee)     | N개           | ✅            |
-| N개           | N개           | ✅ (1:1 매핑) |
-| N개           | M개 (N≠M)     | ❌            |
+| 현재 스테이지   | 다음 스테이지   | 가능 여부     |
+| --------------- | --------------- | ------------- |
+| 1개             | 1개             | ✅            |
+| 1개 (tee)       | N개             | ✅ (fan-out)  |
+| N개             | N개             | ✅ (1:1 매핑) |
+| N개             | 1개 (collect)   | ✅ (fan-in)   |
+| N개             | M개 (N≠M)       | ❌            |
 
 ```bash
 # ✅ 1 → 1 → 1
 uniconv photo.heic "jpg | grayscale"
 
-# ✅ 1 → tee → 3
+# ✅ 1 → tee → 3 (fan-out)
 uniconv photo.heic "tee | jpg, png, webp"
 
 # ✅ 1 → 1 → tee → 2
 uniconv photo.heic "jpg | tee | grayscale, invert"
+
+# ✅ N → 1 (fan-in via collect)
+uniconv photo.heic "tee | jpg, png, webp | collect"
 
 # ❌ 1 → 2 (tee 없이 늘어남)
 uniconv photo.heic "jpg, png"
@@ -173,32 +183,53 @@ uniconv --interactive photo.heic
 
 ---
 
-## 3. ETL 타겟 종류
+## 3. 타겟과 데이터 타입
 
-### 3.1 세 가지 ETL 타입
+### 3.1 타겟 기반 플러그인 해석
 
-모든 타겟은 ETL 중 하나에 속함:
+플러그인은 ETL 타입으로 분류하지 않고, **타겟 이름**과 **데이터 타입(DataType)**으로 해석됨.
+플러그인은 지원하는 타겟, 입력 포맷, 입출력 데이터 타입을 매니페스트에 선언.
+`PluginResolver`가 이를 기반으로 최적의 플러그인을 자동 선택.
 
-| 타입          | 의미 | 예시 타겟                                   |
-| ------------- | ---- | ------------------------------------------- |
-| **Transform** | 변환 | jpg, png, mp4, gif, pdf, ...                |
-| **Extract**   | 추출 | faces, audio, text, scenes, highlights, ... |
-| **Load**      | 적재 | gdrive, s3, dropbox, notion, ...            |
+**DataType (입출력 타입 분류):**
 
-타겟 이름으로 ETL 타입이 자동 결정됨 (플러그인 등록 시 지정).
+| DataType | 설명                 |
+| -------- | -------------------- |
+| File     | 일반 파일 (경로)     |
+| Image    | 이미지 데이터        |
+| Video    | 비디오 데이터        |
+| Audio    | 오디오 데이터        |
+| Text     | 텍스트 데이터        |
+| Json     | 구조화 JSON 데이터   |
+| Binary   | 바이너리 블롭        |
+| Stream   | 스트림 데이터        |
+
+**플러그인 해석 우선순위:**
+1. 명시적 지정 (`@plugin`)
+2. 기본 플러그인 (`config set default.<target>`)
+3. 데이터 타입 + 입력 포맷 매칭
+4. 데이터 타입만 매칭
+5. 타겟 이름만 매칭
 
 ### 3.2 Builtin 타겟
 
-| 타겟              | 설명                                      |
-| ----------------- | ----------------------------------------- |
-| `tee`             | 다음 스테이지로 분기 (입력을 N개로 복제)  |
-| `clipboard`       | 결과를 시스템 클립보드에 복사             |
-| `_` (passthrough) | 입력을 그대로 전달 (분기 시 일부만 처리)  |
+| 타겟              | 설명                                        |
+| ----------------- | ------------------------------------------- |
+| `tee`             | 다음 스테이지로 분기 (입력을 N개로 복제)    |
+| `collect`         | 분기 결과를 하나로 모음 (N → 1 fan-in)      |
+| `clipboard`       | 결과를 시스템 클립보드에 복사/읽기          |
+| `_` (passthrough) | 입력을 그대로 전달 (분기 시 일부만 처리)    |
 
 **clipboard 동작:**
 - 이미지/텍스트 포맷: 콘텐츠를 클립보드에 직접 복사
 - 기타 포맷: 파일 경로를 클립보드에 복사
 - 기본적으로 파일 미생성 (`--save` 또는 `-o`로 파일 저장)
+- 클립보드 입력 지원: `uniconv - --from-clipboard "png"` (클립보드 → 파일)
+
+**collect 동작:**
+- 분기된 N개 결과를 단일 임시 디렉토리에 수집
+- 스테이지의 유일한 요소여야 함
+- 첫 번째 스테이지에는 올 수 없음
 
 **passthrough 별칭:** `_`, `echo`, `bypass`, `pass`, `noop`
 
@@ -224,66 +255,80 @@ uniconv plugin install image-convert  # 개별 플러그인
 
 ### 4.1 설계 원칙
 
-- **하나의 플러그인 = 하나의 ETL 타입**
 - **하나의 플러그인 → 여러 타겟 지원 가능**
 - **여러 플러그인 → 같은 타겟 지원 가능**
-- **같은 스코프명 공유 가능** (예: ffmpeg.transform, ffmpeg.extract)
+- **데이터 타입 기반 해석**: 플러그인이 선언한 `input_types`/`output_types`로 파이프라인 호환성 검사
+- **지연 로딩 (on-demand loading)**: 플러그인은 필요할 때만 로드 (매니페스트만 먼저 스캔)
 
 ### 4.2 플러그인 식별
 
-```
-<스코프명>.<etl타입>
-```
-
-| 식별자              | 스코프명  | ETL       |
-| ------------------- | --------- | --------- |
-| `ffmpeg.transform`  | ffmpeg    | transform |
-| `ffmpeg.extract`    | ffmpeg    | extract   |
-| `ai-vision.extract` | ai-vision | extract   |
-| `gdrive.load`       | gdrive    | load      |
-
-파이프라인에서는 스코프명만 사용 (타겟으로 ETL 결정):
+플러그인은 `scope`로 식별. 매니페스트의 `id()`는 `scope`를 반환.
 
 ```bash
-uniconv "video.mov | mp4@ffmpeg"      # → ffmpeg.transform
-uniconv "video.mov | audio@ffmpeg"    # → ffmpeg.extract
+# 파이프라인에서 @스코프명으로 명시적 지정
+uniconv photo.heic "jpg@image-convert"
+uniconv video.mov "mp4@video-convert"
 ```
 
 ### 4.3 플러그인 타입
 
 #### Native 플러그인 (C/C++)
 
-성능 크리티컬한 경우:
+성능 크리티컬한 경우. `include/uniconv/plugin_api.h` 헤더 사용 (API v3):
 
 ```cpp
-// plugin.h
+// plugin_api.h
 extern "C" {
-    PluginInfo* uniconv_plugin_info();
-    Result* uniconv_plugin_execute(Request* req);
-    void uniconv_plugin_free(void* ptr);
+    UniconvPluginInfo* uniconv_plugin_info();
+    void uniconv_plugin_init();                    // optional
+    UniconvResult* uniconv_plugin_execute(UniconvRequest* req);
+    void uniconv_plugin_free_result(UniconvResult* result);
 }
 ```
 
 ```cpp
-struct PluginInfo {
-    const char* name;           // "ffmpeg"
-    ETLType etl;                // ETL_TRANSFORM
-    const char** targets;       // ["mp4", "webm", "gif", ...]
+struct UniconvPluginInfo {
+    const char* name;               // "image-convert"
+    const char* scope;              // "uniconv"
+    const char** targets;           // ["jpg", "png", "webp", ...]
+    int target_count;
+    const char** input_formats;     // ["jpg", "heic", ...]
+    int input_format_count;
+    UniconvDataType* input_types;   // [UNICONV_DATA_IMAGE]
+    int input_type_count;
+    UniconvDataType* output_types;  // [UNICONV_DATA_IMAGE]
+    int output_type_count;
     const char* version;
+    const char* description;
 };
 
-struct Request {
-    const char* input_path;     // 입력 파일 경로
-    const char* output_path;    // 출력 파일 경로
-    const char* target;         // 타겟 (예: "jpg")
-    const char* options_json;   // 플러그인 옵션 (JSON)
+struct UniconvRequest {
+    const char* input_path;
+    const char* output_path;
+    const char* target;
+    const char* input_format;       // 포맷 힌트 (다단계 파이프라인용)
+    UniconvOptionGetter get_option; // 콜백 기반 옵션 접근
+    void* option_context;
 };
 
-struct Result {
-    bool success;
-    const char* output_path;    // 실제 출력 경로
-    const char* error;          // 에러 메시지 (실패 시)
-    const char* metadata_json;  // 추가 메타데이터 (JSON)
+struct UniconvResult {
+    UniconvStatus status;           // UNICONV_SUCCESS / UNICONV_ERROR
+    const char* output_path;
+    size_t output_size;
+    const char* error;
+    const char* extra_json;         // 추가 메타데이터 (JSON)
+};
+
+// 데이터 타입
+enum UniconvDataType {
+    UNICONV_DATA_FILE = 0,
+    UNICONV_DATA_IMAGE = 1,
+    UNICONV_DATA_VIDEO = 2,
+    UNICONV_DATA_AUDIO = 3,
+    UNICONV_DATA_TEXT = 4,
+    UNICONV_DATA_JSON = 5,
+    UNICONV_DATA_BINARY = 6,
+    UNICONV_DATA_STREAM = 7
 };
 ```
 
@@ -294,7 +339,7 @@ struct Result {
 ```json
 {
   "name": "face-extractor",
-  "etl": "extract",
+  "scope": "ai-vision",
   "targets": ["faces"],
   "executable": "face-extractor",
   "interface": "cli"
@@ -354,63 +399,107 @@ if __name__ == '__main__':
 ```json
 {
   "name": "ai-vision",
+  "scope": "ai-vision",
   "version": "1.2.0",
-  "etl": "extract",
+  "description": "AI-powered vision analysis",
   "targets": ["faces", "text", "objects", "labels"],
+  "input_formats": ["jpg", "png", "webp", "gif", "bmp"],
+  "input_types": ["image"],
+  "output_types": ["json"],
   "interface": "cli",
   "executable": "ai-vision-extract",
   "options": [
-    { "name": "--confidence", "type": "float", "default": 0.5 },
-    { "name": "--language", "type": "string", "default": "auto" }
+    {
+      "name": "--confidence",
+      "type": "float",
+      "default": 0.5,
+      "min": 0.0,
+      "max": 1.0,
+      "description": "Detection confidence threshold"
+    },
+    {
+      "name": "--language",
+      "type": "string",
+      "default": "auto",
+      "choices": ["auto", "en", "ko", "ja"],
+      "targets": ["text"]
+    }
+  ],
+  "dependencies": [
+    { "name": "python3", "type": "system", "version": ">=3.8" },
+    { "name": "torch", "type": "python", "version": ">=2.0" },
+    { "name": "Pillow", "type": "python" }
   ]
 }
 ```
 
+**매니페스트 필드 설명:**
+- `scope`: 플러그인 그룹/식별자 (파이프라인에서 `@scope`로 참조)
+- `input_formats`: 처리 가능한 입력 포맷 목록
+- `input_types` / `output_types`: DataType 문자열 (파이프라인 호환성 검사용)
+- `dependencies`: 시스템/Python/Node 의존성 (설치 시 자동 관리)
+- `options.targets`: 특정 타겟에서만 유효한 옵션 (비어있으면 모든 타겟)
+
 ### 4.5 플러그인 검색 경로
 
 ```
-~/.uniconv/plugins/          # 유저 설치
-/usr/local/lib/uniconv/      # 시스템 설치
-./plugins/                   # 로컬 (개발용)
+~/.uniconv/plugins/                    # 유저 설치
+/usr/local/share/uniconv/plugins/      # 시스템 설치
+<executable_dir>/plugins/              # 포터블 (실행파일 옆)
 ```
+
+**플러그인 지연 로딩 (On-demand Loading):**
+
+플러그인은 시작 시 모두 로드하지 않고, 필요할 때만 로드:
+
+1. **매니페스트 스캔** (lazy): 첫 접근 시 디렉토리 스캔, `plugin.json` 파싱
+2. **매칭 로드** (on-demand): `find_plugin()` 호출 시 타겟에 맞는 플러그인만 로드
+3. **목록 조회**: 매니페스트만으로 `PluginInfo` 반환 (로드 불필요)
+
+이를 통해 `--help`, `--version` 등은 플러그인 스캔 없이 즉시 실행.
 
 ### 4.6 플러그인 설치 및 관리
 
 ```bash
-# 개별 설치
-uniconv plugin install ffmpeg.transform
-uniconv plugin install ffmpeg.extract
-
-# 스코프 전체 설치
-uniconv plugin install ffmpeg
+# 개별 설치 (레지스트리에서)
+uniconv plugin install image-convert
+uniconv plugin install image-convert@1.0.16    # 버전 지정
 
 # 컬렉션 설치
-uniconv plugin install +essentials
+uniconv plugin install +essentials             # +이름 또는 collection:이름
 
-# 온라인에서 검색/설치
+# 로컬 설치 (경로 또는 plugin.json)
+uniconv plugin install /path/to/plugin-dir
+
+# 온라인에서 검색
 uniconv plugin search face
-uniconv plugin install ai-vision
 
 # 플러그인 제거
 uniconv plugin remove ai-vision
 
 # 플러그인 업데이트
 uniconv plugin update ai-vision
-uniconv plugin update --all
+uniconv plugin update                          # 모든 레지스트리 플러그인 업데이트
+uniconv plugin update --check                  # 업데이트 확인만 (설치 안 함)
+uniconv plugin update +essentials              # 컬렉션 내 플러그인 업데이트
 
 # 목록 조회
-uniconv plugin list
+uniconv plugin list                            # 설치된 플러그인
+uniconv plugin list --registry                 # 레지스트리에서 사용 가능한 플러그인
 
-# 특정 타겟 지원 플러그인 조회
-uniconv plugin list --target faces
-
-# 스코프 상세 조회
-uniconv plugin list --scope ffmpeg
+# 상세 정보
+uniconv plugin info image-convert
 
 # 기본 플러그인 설정
 uniconv config set default.jpg vips
 uniconv config set default.faces mediapipe
 ```
+
+**의존성 자동 관리:**
+플러그인 설치 시 `dependencies`에 명시된 의존성을 자동 처리:
+- `system`: 존재 확인, 미설치 시 `install_hint` 제공
+- `python`: 플러그인별 격리된 virtualenv에 설치
+- `node`: 플러그인별 격리된 node_modules에 설치
 
 ### 4.7 플러그인 조회 예시
 
@@ -464,50 +553,50 @@ uniconv config set default.faces mediapipe
 
 ---
 
-## 5. 플러그인 예시
+## 5. 플러그인 예시 (향후 확장 포함)
 
-### 5.1 Transform 플러그인
+### 5.1 변환 플러그인
 
-- **pdf-tools.transform**: PDF 병합, 분할, 압축
-- **hwp.transform**: HWP ↔ PDF/DOCX
-- **office.transform**: DOCX, XLSX, PPTX 변환
-- **cad.transform**: DWG, DXF 변환
-- **3d.transform**: STL, OBJ, FBX, GLTF 변환
-- **raw.transform**: RAW (CR2, NEF, ARW) 변환
-- **ai-image.transform**: 배경 제거, 업스케일, 보정
+- **pdf-tools**: PDF 병합, 분할, 압축
+- **hwp**: HWP ↔ PDF/DOCX
+- **office**: DOCX, XLSX, PPTX 변환
+- **cad**: DWG, DXF 변환
+- **3d**: STL, OBJ, FBX, GLTF 변환
+- **raw**: RAW (CR2, NEF, ARW) 변환
+- **ai-image**: 배경 제거, 업스케일, 보정
 
-### 5.2 Extract 플러그인
+### 5.2 추출 플러그인
 
 **이미지 분석:**
 
-- **ai-vision.extract**: faces, text, objects, labels
-- **ocr.extract**: text, tables, forms
-- **document.extract**: receipt, invoice, business-card, resume
+- **ai-vision**: faces, text, objects, labels
+- **ocr**: text, tables, forms
+- **document**: receipt, invoice, business-card, resume
 
 **비디오 분석:**
 
-- **video-ai.extract**: scenes, highlights, summary
-- **speech.extract**: transcript, chapters
-- **face-tracker.extract**: person (특정 인물 추적)
+- **video-ai**: scenes, highlights, summary
+- **speech**: transcript, chapters
+- **face-tracker**: person (특정 인물 추적)
 
 **검색/분류:**
 
-- **semantic.extract**: 의미 검색 ("beach sunset")
-- **similarity.extract**: similar (유사 이미지)
-- **dedup.extract**: duplicates (중복 찾기)
+- **semantic**: 의미 검색 ("beach sunset")
+- **similarity**: similar (유사 이미지)
+- **dedup**: duplicates (중복 찾기)
 
 **오디오 분석:**
 
-- **audio-ai.extract**: stems (보컬/악기 분리)
-- **transcribe.extract**: transcript, minutes
+- **audio-ai**: stems (보컬/악기 분리)
+- **transcribe**: transcript, minutes
 
-### 5.3 Load 플러그인
+### 5.3 적재 플러그인
 
-- **gdrive.load**: Google Drive
-- **s3.load**: AWS S3
-- **dropbox.load**: Dropbox
-- **notion.load**: Notion
-- **slack.load**: Slack
+- **gdrive**: Google Drive
+- **s3**: AWS S3
+- **dropbox**: Dropbox
+- **notion**: Notion
+- **slack**: Slack
 
 ---
 
@@ -521,18 +610,19 @@ Core 옵션은 소스 파일 앞에 위치:
 uniconv [core옵션] <source> "<pipeline>"
 ```
 
-| 옵션                  | 설명                  |
-| --------------------- | --------------------- |
-| `-o, --output <path>` | 출력 경로             |
-| `-f, --force`         | 덮어쓰기              |
-| `--json`              | JSON 출력             |
-| `--quiet`             | 조용히                |
-| `--verbose`           | 상세 로그             |
-| `--dry-run`           | 실제 실행 안 함       |
-| `-r, --recursive`     | 재귀적 디렉토리 처리  |
-| `--no-interactive`    | interactive 모드 끄기 |
-| `--interactive`       | interactive 모드 강제 |
-| `--preset <n>`        | 프리셋 사용           |
+| 옵션                         | 설명                                  |
+| ---------------------------- | ------------------------------------- |
+| `-o, --output <path>`        | 출력 경로                             |
+| `-f, --force`                | 덮어쓰기                              |
+| `--json`                     | JSON 출력                             |
+| `--quiet`                    | 조용히                                |
+| `--verbose`                  | 상세 로그                             |
+| `--dry-run`                  | 실제 실행 안 함                       |
+| `-r, --recursive`            | 재귀적 디렉토리 처리                  |
+| `-p, --preset <n>`           | 프리셋 사용                           |
+| `--input-format <fmt>`       | 입력 포맷 수동 지정 (stdin 등)        |
+| `--from-clipboard`           | 클립보드에서 입력 읽기 (`-` 소스 필요) |
+| `--timeout <seconds>`        | 플러그인 타임아웃 (0 = 무제한)        |
 
 **플러그인별 옵션** (파이프라인 내 타겟 뒤에 위치):
 - `--quality`, `--width`, `--height` 등은 각 타겟의 플러그인별 옵션
@@ -550,11 +640,13 @@ uniconv [core옵션] <source> "<pipeline>"
 
 ```bash
 uniconv info <file>                  # 파일 상세 정보
+uniconv detect <file>                # 파일 타입 감지 (libmagic 기반)
 uniconv formats                      # 지원 포맷 목록
 uniconv preset list                  # 프리셋 목록
-uniconv plugin list                  # 플러그인 목록
-uniconv plugin list --target <t>     # 특정 타겟 지원 플러그인
-uniconv plugin list --scope <s>      # 특정 스코프 플러그인
+uniconv plugin list                  # 설치된 플러그인 목록
+uniconv plugin list --registry       # 레지스트리 플러그인 목록
+uniconv update                       # uniconv 자체 업데이트
+uniconv update --check               # 업데이트 확인만
 ```
 
 ### 6.3 관리 명령어
@@ -565,11 +657,17 @@ uniconv preset create <n> "<pipeline>"
 uniconv preset delete <n>
 uniconv preset show <n>
 uniconv preset list
+uniconv preset export <n>              # 프리셋 내보내기
+uniconv preset import <file>           # 프리셋 가져오기
 
 # 플러그인 관리
-uniconv plugin install <n>
+uniconv plugin install <n[@version]>   # 레지스트리 설치 (버전 지정 가능)
+uniconv plugin install <path>          # 로컬 설치
+uniconv plugin install +<collection>   # 컬렉션 설치
 uniconv plugin remove <n>
-uniconv plugin update [name | --all]
+uniconv plugin update [name]           # 개별 또는 전체 업데이트
+uniconv plugin update --check          # 업데이트 확인만
+uniconv plugin update +<collection>    # 컬렉션 업데이트
 uniconv plugin search <keyword>
 uniconv plugin info <n>
 
@@ -724,10 +822,13 @@ uniconv --install-context-menu
 
 - **언어**: C++20
 - **빌드**: CMake
-- **CLI 파싱**: CLI11
-- **JSON**: nlohmann/json
-- **비디오/오디오**: FFmpeg (libav\*)
-- **이미지**: libvips (외부 플러그인 `image-convert` 통해 제공)
+- **CLI 파싱**: CLI11 v2.4.2
+- **JSON**: nlohmann/json v3.11.3
+- **테스트**: Google Test v1.14.0
+- **파일 감지**: libmagic (파일 타입 자동 감지)
+
+코어에는 변환 라이브러리(FFmpeg, libvips 등)를 직접 포함하지 않음.
+모든 변환 기능은 외부 플러그인으로 제공 (image-convert, video-convert 등).
 
 ### 10.2 플러그인
 
@@ -747,53 +848,72 @@ uniconv --install-context-menu
 
 ### 11.1 네이밍 규칙
 
-| 종류          | 스타일           | 예시                  |
-| ------------- | ---------------- | --------------------- |
-| 파일명        | snake_case       | `plugin_manager.cpp`  |
-| 헤더 (C++)    | .hpp             | `plugin_manager.hpp`  |
-| 헤더 (C ABI)  | .h               | `plugin.h`            |
-| 클래스/구조체 | PascalCase       | `PluginManager`       |
-| 함수          | snake_case       | `load_plugin()`       |
-| 변수          | snake_case       | `file_path`           |
-| 멤버 변수     | snake*case + `*` | `plugins_`, `config_` |
-| 상수          | kPascalCase      | `kDefaultQuality`     |
-| 매크로        | UPPER_SNAKE      | `UNICONV_VERSION`     |
-| 네임스페이스  | snake_case       | `uniconv::core`       |
-| 인터페이스    | I + PascalCase   | `IPlugin`             |
-| 열거형        | PascalCase       | `ETLType::Transform`  |
+| 종류          | 스타일           | 예시                     |
+| ------------- | ---------------- | ------------------------ |
+| 파일명        | snake_case       | `plugin_manager.cpp`     |
+| 헤더          | .h               | `plugin_manager.h`       |
+| 클래스/구조체 | PascalCase       | `PluginManager`          |
+| 함수          | snake_case       | `load_plugin()`          |
+| 변수          | snake_case       | `file_path`              |
+| 멤버 변수     | snake_case + `_` | `plugins_`, `config_`    |
+| 상수          | kPascalCase      | `kDefaultQuality`        |
+| 매크로        | UPPER_SNAKE      | `UNICONV_VERSION`        |
+| 네임스페이스  | snake_case       | `uniconv::core`          |
+| 인터페이스    | I + PascalCase   | `IPlugin`                |
+| 열거형        | PascalCase       | `DataType::Image`        |
 
 ### 11.2 코드 예시
 
 ```cpp
 namespace uniconv::core {
 
-// ETL 타입
-enum class ETLType {
-    Transform,
-    Extract,
-    Load
+// 데이터 타입 (입출력 분류)
+enum class DataType {
+    File, Image, Video, Audio, Text, Json, Binary, Stream
 };
 
 // 플러그인 정보
 struct PluginInfo {
-    std::string name;
-    ETLType etl;
-    std::vector<std::string> targets;
+    std::string name;                       // "image-convert"
+    std::string id;                         // scope와 동일
+    std::string scope;                      // "uniconv"
+    std::vector<std::string> targets;       // 지원 타겟
+    std::vector<std::string> input_formats; // 지원 입력 포맷
     std::string version;
-    bool builtin;
+    std::string description;
+    bool builtin = false;
+    std::vector<DataType> input_types;      // 입력 데이터 타입
+    std::vector<DataType> output_types;     // 출력 데이터 타입
+};
+
+// 파이프라인 스테이지 요소
+struct StageElement {
+    std::string target;
+    std::optional<std::string> plugin;          // @plugin 지정 시
+    std::map<std::string, std::string> options;
+    std::vector<std::string> raw_options;
+    // is_tee(), is_collect(), is_clipboard(), is_passthrough() 헬퍼
 };
 
 // 파이프라인 스테이지
-struct Stage {
-    std::string target;
-    std::string plugin;           // 명시적 지정 시
-    std::map<std::string, std::string> options;
+struct PipelineStage {
+    std::vector<StageElement> elements;         // 병렬 요소들
 };
 
 // 파이프라인
 struct Pipeline {
-    std::string source;
-    std::vector<std::vector<Stage>> stages;  // 각 스테이지는 병렬 요소 가능
+    std::filesystem::path source;
+    std::vector<PipelineStage> stages;
+    CoreOptions core_options;
+    std::optional<std::string> input_format;    // stdin/generator용 포맷 힌트
+};
+
+// 플러그인 해석 컨텍스트
+struct ResolutionContext {
+    std::string input_format;
+    std::string target;
+    std::optional<std::string> explicit_plugin;
+    std::vector<DataType> input_types;
 };
 
 // 플러그인 인터페이스
@@ -801,6 +921,8 @@ class IPlugin {
 public:
     virtual ~IPlugin() = default;
     virtual PluginInfo info() const = 0;
+    virtual bool supports_target(const std::string& target) const = 0;
+    virtual bool supports_input(const std::string& format) const = 0;
     virtual Result execute(const Request& req) = 0;
 };
 
@@ -817,47 +939,60 @@ uniconv/
 ├── src/
 │   ├── main.cpp
 │   ├── cli/
-│   │   ├── parser.cpp
-│   │   ├── pipeline_parser.cpp    # 파이프라인 문법 파싱
-│   │   ├── interactive.cpp
+│   │   ├── parser.cpp/.h              # CLI11 기반 인자 파싱
+│   │   ├── pipeline_parser.cpp/.h     # 파이프라인 문법 파싱
 │   │   └── commands/
-│   │       ├── run.cpp            # 파이프라인 실행
-│   │       ├── info.cpp
-│   │       ├── preset.cpp
-│   │       └── plugin.cpp
+│   │       ├── info_command.cpp/.h
+│   │       ├── formats_command.cpp/.h
+│   │       ├── preset_command.cpp/.h
+│   │       ├── plugin_command.cpp/.h
+│   │       ├── config_command.cpp/.h
+│   │       ├── update_command.cpp/.h  # uniconv 자체 업데이트
+│   │       └── detect_command.cpp/.h  # 파일 타입 감지
 │   ├── core/
-│   │   ├── engine.cpp
-│   │   ├── pipeline_executor.cpp  # 파이프라인 실행 엔진
-│   │   ├── plugin_manager.cpp
-│   │   ├── plugin_loader_native.cpp
-│   │   ├── plugin_loader_cli.cpp
-│   │   ├── preset_manager.cpp
-│   │   └── watcher.cpp
+│   │   ├── types.h                    # 핵심 타입 (DataType, PluginInfo, Request, Result 등)
+│   │   ├── pipeline.h                 # Pipeline, PipelineStage, StageElement
+│   │   ├── engine.cpp/.h             # ETL 요청 오케스트레이터
+│   │   ├── pipeline_executor.cpp/.h  # 파이프라인 실행 엔진
+│   │   ├── execution_graph.cpp/.h    # DAG 기반 실행 그래프
+│   │   ├── plugin_manager.cpp/.h     # 플러그인 레지스트리 (지연 로딩)
+│   │   ├── plugin_manifest.h         # PluginManifest 구조체
+│   │   ├── plugin_discovery.cpp/.h   # 파일시스템 플러그인 탐색
+│   │   ├── plugin_resolver.cpp/.h    # 타입 기반 플러그인 해석
+│   │   ├── plugin_loader_cli.cpp/.h  # CLI 플러그인 로더
+│   │   ├── plugin_loader_native.cpp/.h # Native 플러그인 로더
+│   │   ├── dependency_installer.cpp/.h # 플러그인 의존성 설치
+│   │   ├── dependency_checker.cpp/.h   # 의존성 확인
+│   │   ├── installed_plugins.cpp/.h    # 설치 기록 추적
+│   │   ├── registry_client.cpp/.h      # 플러그인 레지스트리 클라이언트
+│   │   ├── registry_types.h            # 레지스트리 타입 정의
+│   │   ├── config_manager.cpp/.h       # 설정 관리
+│   │   ├── preset_manager.cpp/.h       # 프리셋 관리
+│   │   ├── watcher.cpp/.h             # Watch 모드
+│   │   └── output/                    # 출력 추상화
+│   │       ├── output.h               # IOutput 인터페이스
+│   │       ├── console_output.cpp/.h  # 콘솔 출력 (스피너 포함)
+│   │       └── json_output.cpp/.h     # JSON 출력
 │   ├── builtins/
-│   │   └── tee.cpp                # tee builtin
-│   ├── plugins/                   # 플러그인 인터페이스
-│   │   ├── plugin_interface.h     # IPlugin base class
-│   │   ├── ffmpeg_transform.cpp
-│   │   └── ffmpeg_extract.cpp
+│   │   ├── tee.cpp/.h                # fan-out builtin
+│   │   ├── collect.cpp/.h            # fan-in builtin
+│   │   ├── clipboard.cpp/.h          # 클립보드 입출력
+│   │   └── passthrough.cpp/.h        # 패스스루 builtin
+│   ├── plugins/
+│   │   └── plugin_interface.h        # IPlugin 인터페이스 (순수 가상)
 │   └── utils/
-│       ├── file_utils.cpp
-│       └── json_output.cpp
+│       ├── file_utils.cpp/.h         # 파일 유틸리티
+│       ├── string_utils.cpp/.h       # 문자열 유틸리티
+│       ├── mime_detector.cpp/.h      # libmagic 기반 타입 감지
+│       ├── http_utils.cpp/.h         # HTTP 클라이언트
+│       └── version_utils.cpp/.h      # 버전 비교
 ├── include/
 │   └── uniconv/
-│       ├── plugin.h               # 플러그인 C ABI
-│       ├── pipeline.hpp
-│       ├── types.hpp
-│       └── ...
-├── plugins/
-│   └── examples/                  # 예제 플러그인
-│       ├── python/
-│       ├── go/
-│       └── rust/
-├── scripts/
-│   ├── macos/
-│   ├── windows/
-│   └── linux/
+│       ├── plugin_api.h              # 플러그인 C ABI (API v3)
+│       ├── export.h                  # 공유 라이브러리 export 매크로
+│       └── version.h.in              # 버전 정보 (CMake 생성)
 └── tests/
+    └── unit/                         # Google Test 기반 유닛 테스트
 ```
 
 ---
@@ -871,13 +1006,7 @@ uniconv/
 - CLI core 호출
 - 파이프라인 시각적 편집기
 
-### 13.2 플러그인 레지스트리
-
-- 중앙 플러그인 저장소
-- `uniconv plugin search <keyword>`
-- 버전 관리, 의존성 해결
-
-### 13.3 Python/Node SDK
+### 13.2 Python/Node SDK
 
 - 플러그인 개발용 SDK
 - 보일러플레이트 생성기
@@ -885,6 +1014,11 @@ uniconv/
 ```bash
 uniconv plugin init --lang python my-plugin
 ```
+
+### 13.3 Interactive 모드
+
+- 파이프라인 없이 실행 시 대화형 UI
+- 초보자 친화적 가이드
 
 ---
 
@@ -900,26 +1034,34 @@ uniconv plugin init --lang python my-plugin
 ### Phase 2: 파이프라인 확장 ✅
 
 - [x] 다중 스테이지 파이프라인
-- [x] tee builtin (분기)
-- [x] 프리셋 시스템
-- [x] clipboard builtin
+- [x] tee builtin (fan-out 분기)
+- [x] collect builtin (fan-in 수집)
+- [x] 프리셋 시스템 (export/import 포함)
+- [x] clipboard builtin (입출력 양방향)
 - [x] passthrough builtin (_)
 - [x] `--input-format` 힌트 (다단계 파이프라인용)
+- [x] stdin/파이프 입력 지원 (`-` 소스)
+- [x] DAG 기반 실행 그래프 (ExecutionGraph)
 
 ### Phase 3: 플러그인 시스템 ✅
 
-- [x] Native 플러그인 로더
+- [x] Native 플러그인 로더 (C ABI v3)
 - [x] CLI 플러그인 로더
 - [x] 플러그인 관리 명령어
-- [x] 플러그인 레지스트리
+- [x] 플러그인 레지스트리 (검색, 설치, 업데이트)
 - [x] 플러그인 컬렉션 (+essentials)
-- [x] Python 의존성 자동 설치
+- [x] Python/Node 의존성 자동 설치 (격리 환경)
+- [x] DataType 기반 플러그인 해석 (PluginResolver)
+- [x] 플러그인 지연 로딩 (on-demand loading)
 
 ### Phase 4: 확장 기능 (진행 중)
 
 - [x] 비디오 변환 (video-convert 플러그인)
 - [x] 문서 변환 (doc-convert 플러그인)
 - [x] Watch 모드
+- [x] 파일 타입 감지 (detect 명령어)
+- [x] uniconv 자체 업데이트 (update 명령어)
+- [x] 출력 추상화 (IOutput: Console/JSON)
 - [ ] Interactive 모드
 
 ### Phase 5: 플랫폼 통합
