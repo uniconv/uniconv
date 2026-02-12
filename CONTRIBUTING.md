@@ -148,11 +148,17 @@ print(json.dumps({
   "interface": "cli",
   "executable": "my_plugin.py",
   "targets": ["my-format"],
-  "input_formats": ["jpg", "png"],
-  "input_types": ["image"],
-  "output_types": ["image"]
+  "accepts": ["jpg", "png"]
 }
 ```
+
+**Manifest fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `targets` | `map` or `array` | — | Targets this plugin can produce. Array shortcut: `["jpg"]` → `{"jpg": []}`. Map for non-trivial: `{"extract": ["geojson", "csv"]}` |
+| `accepts` | `string[]` (optional) | omit = accept all | Input formats. Omitted = accept any input, `[]` = accept nothing |
+| `sink` | `bool` | `false` | If `true`, plugin owns output (upload, save) — uniconv skips finalization |
 
 Place the plugin directory in `~/.uniconv/plugins/` for automatic discovery.
 

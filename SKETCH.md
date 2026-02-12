@@ -48,7 +48,7 @@
 ### 2.1 기본 구조
 
 ```bash
-uniconv [core옵션] <source> "<target>[@plugin] [옵션] | <target>[@plugin] [옵션] | ..."
+uniconv [core옵션] <source> "[scope/plugin:]<target>[.ext] [옵션] | ..."
 ```
 
 **중요: 파이프라인(타겟 체인)은 반드시 따옴표로 감싸야 함** (쉘 `|` 연산자와 충돌 방지)
@@ -95,9 +95,13 @@ uniconv - --from-clipboard "png"
 ### 2.3 플러그인 지정
 
 ```bash
-# @로 플러그인 지정 (같은 타겟을 여러 플러그인이 지원할 때)
-uniconv photo.heic "jpg@image-convert --quality 90"
-uniconv video.mov "mp4@video-convert --crf 23"
+# scope/plugin:target 형식으로 명시적 지정 (같은 타겟을 여러 플러그인이 지원할 때)
+uniconv photo.heic "uniconv/image-convert:jpg --quality 90"
+uniconv video.mov "uniconv/video-convert:mp4 --crf 23"
+
+# 출력 확장자가 타겟과 다를 때 .ext로 지정
+uniconv data.postgis "geo/postgis:extract.geojson"
+uniconv data.postgis "geo/postgis:extract.csv"
 ```
 
 ### 2.4 tee를 이용한 분기
@@ -187,29 +191,23 @@ uniconv --interactive photo.heic
 
 ### 3.1 타겟 기반 플러그인 해석
 
-플러그인은 ETL 타입으로 분류하지 않고, **타겟 이름**과 **데이터 타입(DataType)**으로 해석됨.
-플러그인은 지원하는 타겟, 입력 포맷, 입출력 데이터 타입을 매니페스트에 선언.
+플러그인은 ETL 타입으로 분류하지 않고, **타겟 이름**과 **입력 포맷 매칭**으로 해석됨.
+플러그인은 지원하는 `targets`와 `accepts`를 매니페스트에 선언.
 `PluginResolver`가 이를 기반으로 최적의 플러그인을 자동 선택.
 
-**DataType (입출력 타입 분류):**
+**플러그인 식별자 문법:** `[scope/plugin:]target[.extension]`
 
-| DataType | 설명                 |
-| -------- | -------------------- |
-| File     | 일반 파일 (경로)     |
-| Image    | 이미지 데이터        |
-| Video    | 비디오 데이터        |
-| Audio    | 오디오 데이터        |
-| Text     | 텍스트 데이터        |
-| Json     | 구조화 JSON 데이터   |
-| Binary   | 바이너리 블롭        |
-| Stream   | 스트림 데이터        |
+| 부분 | 필수 | 설명 |
+| ---- | ---- | ---- |
+| `scope/plugin` | 선택 | 네임스페이스/플러그인명 (명시적 지정) |
+| `target` | 필수 | 작업 이름 |
+| `.extension` | 선택 | 출력 포맷 (생략 시 target과 동일) |
 
 **플러그인 해석 우선순위:**
-1. 명시적 지정 (`@plugin`)
+1. 명시적 지정 (`scope/plugin:target`)
 2. 기본 플러그인 (`config set default.<target>`)
-3. 데이터 타입 + 입력 포맷 매칭
-4. 데이터 타입만 매칭
-5. 타겟 이름만 매칭
+3. 입력 포맷 + 타겟 매칭
+4. 타겟 이름만 매칭
 
 ### 3.2 Builtin 타겟
 
@@ -257,17 +255,21 @@ uniconv plugin install image-convert  # 개별 플러그인
 
 - **하나의 플러그인 → 여러 타겟 지원 가능**
 - **여러 플러그인 → 같은 타겟 지원 가능**
-- **데이터 타입 기반 해석**: 플러그인이 선언한 `input_types`/`output_types`로 파이프라인 호환성 검사
+- **타겟/포맷 기반 해석**: 플러그인이 선언한 `targets`와 `accepts`로 파이프라인 호환성 검사
 - **지연 로딩 (on-demand loading)**: 플러그인은 필요할 때만 로드 (매니페스트만 먼저 스캔)
+- **Sink 플러그인**: `"sink": true`로 선언된 플러그인은 출력 파일을 생성하지 않는 터미널 스테이지 (업로드, 저장 등)
 
 ### 4.2 플러그인 식별
 
-플러그인은 `scope`로 식별. 매니페스트의 `id()`는 `scope`를 반환.
+플러그인은 `scope/name` 형태로 식별. 파이프라인에서 `scope/plugin:target[.ext]` 문법으로 명시적 지정.
 
 ```bash
-# 파이프라인에서 @스코프명으로 명시적 지정
-uniconv photo.heic "jpg@image-convert"
-uniconv video.mov "mp4@video-convert"
+# 파이프라인에서 scope/plugin:target으로 명시적 지정
+uniconv photo.heic "uniconv/image-convert:jpg --quality 90"
+uniconv video.mov "uniconv/video-convert:mp4"
+
+# 출력 확장자 명시
+uniconv data.postgis "geo/postgis:extract.geojson"
 ```
 
 ### 4.3 플러그인 타입
@@ -292,12 +294,8 @@ struct UniconvPluginInfo {
     const char* scope;              // "uniconv"
     const char** targets;           // ["jpg", "png", "webp", ...]
     int target_count;
-    const char** input_formats;     // ["jpg", "heic", ...]
+    const char** input_formats;     // ["jpg", "heic", ...] (accepts)
     int input_format_count;
-    UniconvDataType* input_types;   // [UNICONV_DATA_IMAGE]
-    int input_type_count;
-    UniconvDataType* output_types;  // [UNICONV_DATA_IMAGE]
-    int output_type_count;
     const char* version;
     const char* description;
 };
@@ -319,17 +317,6 @@ struct UniconvResult {
     const char* extra_json;         // 추가 메타데이터 (JSON)
 };
 
-// 데이터 타입
-enum UniconvDataType {
-    UNICONV_DATA_FILE = 0,
-    UNICONV_DATA_IMAGE = 1,
-    UNICONV_DATA_VIDEO = 2,
-    UNICONV_DATA_AUDIO = 3,
-    UNICONV_DATA_TEXT = 4,
-    UNICONV_DATA_JSON = 5,
-    UNICONV_DATA_BINARY = 6,
-    UNICONV_DATA_STREAM = 7
-};
 ```
 
 #### CLI 플러그인 (언어 무관)
@@ -340,7 +327,8 @@ enum UniconvDataType {
 {
   "name": "face-extractor",
   "scope": "ai-vision",
-  "targets": ["faces"],
+  "targets": {"faces": ["json"]},
+  "accepts": ["jpg", "png", "webp"],
   "executable": "face-extractor",
   "interface": "cli"
 }
@@ -402,10 +390,13 @@ if __name__ == '__main__':
   "scope": "ai-vision",
   "version": "1.2.0",
   "description": "AI-powered vision analysis",
-  "targets": ["faces", "text", "objects", "labels"],
-  "input_formats": ["jpg", "png", "webp", "gif", "bmp"],
-  "input_types": ["image"],
-  "output_types": ["json"],
+  "targets": {
+    "faces": ["json"],
+    "text": ["json", "txt"],
+    "objects": ["json"],
+    "labels": ["json"]
+  },
+  "accepts": ["jpg", "png", "webp", "gif", "bmp"],
   "interface": "cli",
   "executable": "ai-vision-extract",
   "options": [
@@ -434,11 +425,20 @@ if __name__ == '__main__':
 ```
 
 **매니페스트 필드 설명:**
-- `scope`: 플러그인 그룹/식별자 (파이프라인에서 `@scope`로 참조)
-- `input_formats`: 처리 가능한 입력 포맷 목록
-- `input_types` / `output_types`: DataType 문자열 (파이프라인 호환성 검사용)
-- `dependencies`: 시스템/Python/Node 의존성 (설치 시 자동 관리)
-- `options.targets`: 특정 타겟에서만 유효한 옵션 (비어있으면 모든 타겟)
+
+| 필드 | 타입 | 기본값 | 설명 |
+| ---- | ---- | ------ | ---- |
+| `targets` | `map` 또는 `array` | — | 지원하는 타겟 → 출력 확장자 매핑. 배열 단축형: `["jpg", "png"]` → `{"jpg": [], "png": []}` |
+| `accepts` | `string[]` (선택) | 생략=전체 수용 | 처리 가능한 입력 포맷. 생략 시 모든 입력 허용, `[]` 시 입력 없음 |
+| `sink` | `bool` | `false` | `true`면 출력 파일 미생성 터미널 플러그인 (업로드, 저장 등) |
+| `scope` | `string` | — | 플러그인 네임스페이스 (파이프라인에서 `scope/plugin:target`으로 참조) |
+| `dependencies` | `object[]` | — | 시스템/Python/Node 의존성 (설치 시 자동 관리) |
+| `options.targets` | `string[]` | — | 특정 타겟에서만 유효한 옵션 (비어있으면 모든 타겟) |
+
+**targets 형식:**
+- **Map**: `{"extract": ["geojson", "csv"], "fgb": []}` — 타겟 → 출력 확장자
+- **Array 단축형**: `["jpg", "png", "gif"]` → `{"jpg":[], "png":[], "gif":[]}` (타겟=확장자일 때)
+- Map의 첫 번째 확장자가 기본 출력 확장자로 사용됨
 
 ### 4.5 플러그인 검색 경로
 
@@ -542,10 +542,10 @@ uniconv "photo.jpg | faces"
 uniconv --no-interactive "photo.jpg | faces"
 # → 경고 출력 후 첫 번째 사용
 # ⚠ Multiple plugins support 'faces'. Using 'ai-vision'.
-#   Use faces@mediapipe to specify.
+#   Use mediapipe:faces to specify.
 
 # 명시적 지정
-uniconv "photo.jpg | faces@mediapipe"
+uniconv "photo.jpg | mediapipe:faces"
 
 # 기본값 설정
 uniconv config set default.faces mediapipe
@@ -590,13 +590,21 @@ uniconv config set default.faces mediapipe
 - **audio-ai**: stems (보컬/악기 분리)
 - **transcribe**: transcript, minutes
 
-### 5.3 적재 플러그인
+### 5.3 적재 플러그인 (Sink)
 
-- **gdrive**: Google Drive
-- **s3**: AWS S3
-- **dropbox**: Dropbox
-- **notion**: Notion
-- **slack**: Slack
+적재 플러그인은 `"sink": true`로 선언. 출력 파일을 생성하지 않고 외부로 전송하는 터미널 스테이지.
+
+- **gdrive**: Google Drive 업로드
+- **s3**: AWS S3 업로드
+- **dropbox**: Dropbox 업로드
+- **notion**: Notion 페이지 생성
+- **slack**: Slack 메시지 전송
+
+```bash
+# 변환 후 업로드 (sink 플러그인)
+uniconv photo.heic "jpg | gdrive:upload"
+uniconv data.csv "json | s3:upload"
+```
 
 ---
 
@@ -877,19 +885,19 @@ struct PluginInfo {
     std::string name;                       // "image-convert"
     std::string id;                         // scope와 동일
     std::string scope;                      // "uniconv"
-    std::vector<std::string> targets;       // 지원 타겟
-    std::vector<std::string> input_formats; // 지원 입력 포맷
+    std::map<std::string, std::vector<std::string>> targets; // 타겟 → 출력 확장자
+    std::optional<std::vector<std::string>> accepts; // nullopt=전체, []=없음, [값]=목록
     std::string version;
     std::string description;
     bool builtin = false;
-    std::vector<DataType> input_types;      // 입력 데이터 타입
-    std::vector<DataType> output_types;     // 출력 데이터 타입
+    bool sink = false;                      // sink 플러그인 (출력 파일 미생성)
 };
 
 // 파이프라인 스테이지 요소
 struct StageElement {
     std::string target;
-    std::optional<std::string> plugin;          // @plugin 지정 시
+    std::optional<std::string> plugin;          // scope/plugin:target 지정 시
+    std::optional<std::string> extension;       // .ext 지정 시
     std::map<std::string, std::string> options;
     std::vector<std::string> raw_options;
     // is_tee(), is_collect(), is_clipboard(), is_passthrough() 헬퍼
@@ -913,7 +921,6 @@ struct ResolutionContext {
     std::string input_format;
     std::string target;
     std::optional<std::string> explicit_plugin;
-    std::vector<DataType> input_types;
 };
 
 // 플러그인 인터페이스
