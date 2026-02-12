@@ -112,7 +112,7 @@ TEST(PluginManifestTest, DependenciesRoundTrip)
     m.name = "test-plugin";
     m.scope = "test-plugin";
     m.version = "1.0.0";
-    m.targets = {"test"};
+    m.targets = {{"test", {}}};
 
     Dependency dep;
     dep.name = "python3";
@@ -236,4 +236,106 @@ TEST(InstalledPluginRecordTest, RoundTrip)
     EXPECT_EQ(r.version, r2.version);
     EXPECT_EQ(r.installed_at, r2.installed_at);
     EXPECT_EQ(r.source, r2.source);
+}
+
+// ============================================================================
+// Map-based targets format
+// ============================================================================
+
+TEST(PluginManifestTest, TargetsArrayFormat)
+{
+    // Old format: array of strings → converted to map with empty vectors
+    nlohmann::json j = {
+        {"name", "image-grayscale"},
+        {"version", "1.0.0"},
+        {"interface", "cli"},
+        {"executable", "grayscale.py"},
+        {"targets", {"grayscale", "sepia"}}};
+
+    auto manifest = PluginManifest::from_json(j);
+    ASSERT_EQ(manifest.targets.size(), 2);
+    EXPECT_TRUE(manifest.targets.count("grayscale"));
+    EXPECT_TRUE(manifest.targets.count("sepia"));
+    EXPECT_TRUE(manifest.targets.at("grayscale").empty());
+    EXPECT_TRUE(manifest.targets.at("sepia").empty());
+}
+
+TEST(PluginManifestTest, TargetsMapFormat)
+{
+    // New format: map of target → extensions
+    nlohmann::json j = {
+        {"name", "geo-extractor"},
+        {"version", "1.0.0"},
+        {"interface", "cli"},
+        {"executable", "extract.py"},
+        {"targets", {{"extract", {"geojson", "csv"}}, {"transform", {"fgb"}}}}};
+
+    auto manifest = PluginManifest::from_json(j);
+    ASSERT_EQ(manifest.targets.size(), 2);
+    EXPECT_TRUE(manifest.targets.count("extract"));
+    ASSERT_EQ(manifest.targets.at("extract").size(), 2);
+    EXPECT_EQ(manifest.targets.at("extract")[0], "geojson");
+    EXPECT_EQ(manifest.targets.at("extract")[1], "csv");
+    ASSERT_EQ(manifest.targets.at("transform").size(), 1);
+    EXPECT_EQ(manifest.targets.at("transform")[0], "fgb");
+}
+
+TEST(PluginManifestTest, AcceptsField)
+{
+    nlohmann::json j = {
+        {"name", "geo-plugin"},
+        {"version", "1.0.0"},
+        {"interface", "cli"},
+        {"executable", "geo.py"},
+        {"targets", {"extract"}},
+        {"accepts", {"shp", "gpkg", "geojson"}}};
+
+    auto manifest = PluginManifest::from_json(j);
+    ASSERT_EQ(manifest.accepts.size(), 3);
+    EXPECT_EQ(manifest.accepts[0], "shp");
+    EXPECT_EQ(manifest.accepts[1], "gpkg");
+    EXPECT_EQ(manifest.accepts[2], "geojson");
+}
+
+TEST(PluginManifestTest, AcceptsFallsBackToInputFormats)
+{
+    nlohmann::json j = {
+        {"name", "converter"},
+        {"version", "1.0.0"},
+        {"interface", "cli"},
+        {"executable", "conv.py"},
+        {"targets", {"jpg"}},
+        {"input_formats", {"png", "bmp"}}};
+
+    auto manifest = PluginManifest::from_json(j);
+    // No explicit accepts, so it should fall back to input_formats
+    ASSERT_EQ(manifest.accepts.size(), 2);
+    EXPECT_EQ(manifest.accepts[0], "png");
+    EXPECT_EQ(manifest.accepts[1], "bmp");
+}
+
+TEST(PluginManifestTest, TargetsMapRoundTrip)
+{
+    PluginManifest m;
+    m.name = "test-plugin";
+    m.scope = "test-plugin";
+    m.version = "1.0.0";
+    m.targets = {{"extract", {"geojson", "csv"}}, {"transform", {}}};
+    m.accepts = {"shp", "gpkg"};
+
+    auto j = m.to_json();
+
+    // Verify JSON structure
+    ASSERT_TRUE(j.at("targets").is_object());
+    ASSERT_EQ(j.at("targets").at("extract").size(), 2);
+    ASSERT_TRUE(j.contains("accepts"));
+
+    // Round-trip
+    auto m2 = PluginManifest::from_json(j);
+    ASSERT_EQ(m2.targets.size(), 2);
+    EXPECT_EQ(m2.targets.at("extract").size(), 2);
+    EXPECT_EQ(m2.targets.at("extract")[0], "geojson");
+    EXPECT_TRUE(m2.targets.at("transform").empty());
+    ASSERT_EQ(m2.accepts.size(), 2);
+    EXPECT_EQ(m2.accepts[0], "shp");
 }

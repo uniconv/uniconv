@@ -16,7 +16,7 @@ namespace uniconv::core
     {
         std::string input_format;                   // e.g., "png", "pdf", "docx"
         std::string target;                         // e.g., "pdf", "docx", "png"
-        std::optional<std::string> explicit_plugin; // e.g., "image-convert" (from @plugin)
+        std::optional<std::string> explicit_plugin; // e.g., "image-convert" (from scope/plugin:target)
         std::vector<DataType> input_types;          // e.g., {Image} or {File}
     };
 

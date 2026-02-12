@@ -100,18 +100,20 @@ namespace uniconv::core
         }
 
         // Convert to PluginInfo
-        cached_info_.id = native_info->scope ? native_info->scope : manifest_.scope;
-        cached_info_.scope = native_info->scope ? native_info->scope : manifest_.scope;
+        // Prefer manifest scope/name (reflects installed location in plugin store)
+        cached_info_.name = manifest_.name;
+        cached_info_.scope = !manifest_.scope.empty() ? manifest_.scope : (native_info->scope ? native_info->scope : "");
+        cached_info_.id = cached_info_.scope;
         cached_info_.version = native_info->version ? native_info->version : manifest_.version;
         cached_info_.description = native_info->description ? native_info->description : manifest_.description;
         cached_info_.builtin = false;
 
-        // Copy targets
+        // Copy targets (native plugins provide flat list, convert to map with empty extensions)
         if (native_info->targets)
         {
             for (const char **t = native_info->targets; *t != nullptr; ++t)
             {
-                cached_info_.targets.emplace_back(*t);
+                cached_info_.targets[*t] = {};
             }
         }
 
@@ -148,7 +150,7 @@ namespace uniconv::core
     {
         auto plugin_info = info();
         auto lower = to_lower(target);
-        for (const auto &t : plugin_info.targets)
+        for (const auto &[t, _] : plugin_info.targets)
         {
             if (to_lower(t) == lower)
             {
@@ -162,14 +164,17 @@ namespace uniconv::core
     {
         auto plugin_info = info();
 
+        // Prefer accepts over input_formats
+        const auto &formats = plugin_info.accepts.empty() ? plugin_info.input_formats : plugin_info.accepts;
+
         // If no input formats specified, accept all
-        if (plugin_info.input_formats.empty())
+        if (formats.empty())
         {
             return true;
         }
 
         auto lower = to_lower(format);
-        for (const auto &f : plugin_info.input_formats)
+        for (const auto &f : formats)
         {
             if (to_lower(f) == lower)
             {

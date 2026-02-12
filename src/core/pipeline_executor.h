@@ -131,6 +131,12 @@ namespace uniconv::core
         // Cleanup temp files
         void cleanup_temp_files();
 
+        // Resolve extension for a node:
+        // 1. Explicit extension from user → use as-is
+        // 2. Look up target in plugin's targets map → use first entry
+        // 3. Fallback to target_to_extension(target)
+        std::string resolve_extension(const ExecutionNode &node);
+
         // Check if a target format can have its content copied to clipboard
         static bool is_clipboard_content_copyable(const std::string &target);
 

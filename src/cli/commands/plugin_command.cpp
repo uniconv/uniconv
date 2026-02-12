@@ -113,11 +113,14 @@ namespace uniconv::cli::commands
         for (const auto &p : builtin)
         {
             std::string targets;
-            for (size_t i = 0; i < p.targets.size() && i < 5; ++i)
+            size_t ti = 0;
+            for (const auto &[t, _] : p.targets)
             {
-                if (i > 0)
+                if (ti >= 5) break;
+                if (ti > 0)
                     targets += ",";
-                targets += p.targets[i];
+                targets += t;
+                ++ti;
             }
             if (p.targets.size() > 5)
                 targets += ",...";
@@ -137,11 +140,14 @@ namespace uniconv::cli::commands
         for (const auto &m : manifests)
         {
             std::string targets;
-            for (size_t i = 0; i < m.targets.size() && i < 5; ++i)
+            size_t ti = 0;
+            for (const auto &[t, _] : m.targets)
             {
-                if (i > 0)
+                if (ti >= 5) break;
+                if (ti > 0)
                     targets += ",";
-                targets += m.targets[i];
+                targets += t;
+                ++ti;
             }
             if (m.targets.size() > 5)
                 targets += ",...";
@@ -810,11 +816,15 @@ namespace uniconv::cli::commands
                 text << "Description: " << p.description << "\n";
                 text << "Source:      built-in\n";
                 text << "Targets:     ";
-                for (size_t i = 0; i < p.targets.size(); ++i)
                 {
-                    if (i > 0)
-                        text << ", ";
-                    text << p.targets[i];
+                    size_t ti = 0;
+                    for (const auto &[t, _] : p.targets)
+                    {
+                        if (ti > 0)
+                            text << ", ";
+                        text << t;
+                        ++ti;
+                    }
                 }
                 text << "\n";
                 text << "Inputs:      ";
@@ -871,11 +881,15 @@ namespace uniconv::cli::commands
         }
 
         text << "Targets:     ";
-        for (size_t i = 0; i < manifest->targets.size(); ++i)
         {
-            if (i > 0)
-                text << ", ";
-            text << manifest->targets[i];
+            size_t ti = 0;
+            for (const auto &[t, _] : manifest->targets)
+            {
+                if (ti > 0)
+                    text << ", ";
+                text << t;
+                ++ti;
+            }
         }
         text << "\n";
 

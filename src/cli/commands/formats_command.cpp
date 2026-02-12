@@ -23,7 +23,7 @@ namespace uniconv::cli::commands
             {
                 all_inputs.insert(fmt);
             }
-            for (const auto &target : plugin.targets)
+            for (const auto &[target, _] : plugin.targets)
             {
                 all_outputs.insert(target);
             }

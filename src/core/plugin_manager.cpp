@@ -51,7 +51,7 @@ namespace uniconv::core
             bool matches = false;
 
             // Match by target
-            for (const auto &t : it->targets)
+            for (const auto &[t, _] : it->targets)
             {
                 if (to_lower(t) == target)
                 {
@@ -60,7 +60,7 @@ namespace uniconv::core
                 }
             }
 
-            // Match by explicit plugin (target@plugin or target@scope/plugin syntax)
+            // Match by explicit plugin (scope/plugin:target syntax)
             if (!matches && context.explicit_plugin)
             {
                 auto ep = to_lower(*context.explicit_plugin);
@@ -272,7 +272,7 @@ namespace uniconv::core
         }
         for (const auto &m : manifests_)
         {
-            for (const auto &t : m.targets)
+            for (const auto &[t, _] : m.targets)
             {
                 if (to_lower(t) == lower_target)
                 {

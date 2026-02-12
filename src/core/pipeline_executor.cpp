@@ -331,6 +331,9 @@ namespace uniconv::core
     {
         node.input = get_node_input(node, graph);
 
+        // Resolve extension for file naming
+        node.resolved_extension = resolve_extension(node);
+
         // Report progress: stage started
         if (output)
         {
@@ -341,7 +344,7 @@ namespace uniconv::core
 
         // Always output to temp during execution phase
         node.temp_output = generate_temp_path(
-            node.target,
+            node.resolved_extension,
             node.stage_idx,
             node.element_idx);
 
@@ -435,6 +438,9 @@ namespace uniconv::core
         size_t total_nodes,
         PipelineResult &result)
     {
+        // Resolve extension for file naming
+        node.resolved_extension = resolve_extension(node);
+
         // Execute the conversion once for each scattered input
         std::vector<std::filesystem::path> new_scattered_paths;
         new_scattered_paths.reserve(scattered_paths_.size());
@@ -455,7 +461,7 @@ namespace uniconv::core
 
             // Generate a unique temp path for this scatter index
             auto temp_output = generate_scatter_temp_path(
-                node.target, node.stage_idx, node.element_idx, i);
+                node.resolved_extension, node.stage_idx, node.element_idx, i);
 
             // Build request
             Request request;
@@ -967,6 +973,30 @@ namespace uniconv::core
         }
     }
 
+    std::string PipelineExecutor::resolve_extension(const ExecutionNode &node)
+    {
+        // 1. Explicit extension from user → use as-is
+        if (node.extension.has_value() && !node.extension->empty())
+        {
+            return *node.extension;
+        }
+
+        // 2. Look up target in plugin's targets map → use first entry (default)
+        auto *plugin = engine_->plugin_manager().find_plugin(node.target, node.plugin);
+        if (plugin)
+        {
+            auto plugin_info = plugin->info();
+            auto it = plugin_info.targets.find(node.target);
+            if (it != plugin_info.targets.end() && !it->second.empty())
+            {
+                return it->second[0]; // First extension is the default
+            }
+        }
+
+        // 3. Fallback to target_to_extension(target) (backward compat)
+        return target_to_extension(node.target);
+    }
+
     // Known file format extensions
     static const std::vector<std::string> known_file_formats = {
         // Image formats
@@ -1037,6 +1067,12 @@ namespace uniconv::core
         const ExecutionNode &node,
         const ExecutionGraph &graph)
     {
+        // If resolved_extension is set and is a known format, prefer it
+        if (!node.resolved_extension.empty() && is_known_file_format(node.resolved_extension))
+        {
+            return node.resolved_extension;
+        }
+
         // If target is a known file format, use it
         if (is_known_file_format(node.target))
         {

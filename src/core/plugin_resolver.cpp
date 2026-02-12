@@ -21,13 +21,15 @@ namespace uniconv::core
         const ResolutionContext &context,
         const std::vector<std::unique_ptr<plugins::IPlugin>> &plugins) const
     {
-        // Priority 1: Explicit plugin (@plugin syntax)
+        // Priority 1: Explicit plugin (scope/plugin:target syntax)
+        // If specified but not found, fail immediately — don't fall through
         if (context.explicit_plugin)
         {
             if (auto *p = find_by_explicit(*context.explicit_plugin, context.target, plugins))
             {
                 return {p, "explicit"};
             }
+            return {nullptr, "explicit_not_found"};
         }
 
         // Priority 2: Default plugin for target

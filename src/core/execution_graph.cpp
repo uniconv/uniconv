@@ -88,6 +88,7 @@ void ExecutionGraph::build_from_pipeline(const Pipeline& pipeline) {
             node.element_idx = elem_idx;
             node.target = element.target;
             node.plugin = element.plugin;
+            node.extension = element.extension;
             node.plugin_options = element.raw_options;
             node.options = element.options;
 

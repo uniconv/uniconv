@@ -165,7 +165,16 @@ namespace uniconv::utils
         os << std::endl;
         os << "  Version: " << info.version << std::endl;
         os << "  Description: " << info.description << std::endl;
-        os << "  Targets: " << join(info.targets, ", ") << std::endl;
+        {
+            std::string target_str;
+            for (const auto &[t, _] : info.targets)
+            {
+                if (!target_str.empty())
+                    target_str += ", ";
+                target_str += t;
+            }
+            os << "  Targets: " << target_str << std::endl;
+        }
         if (!info.input_formats.empty())
         {
             os << "  Input formats: " << join(info.input_formats, ", ") << std::endl;

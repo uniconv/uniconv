@@ -320,7 +320,7 @@ namespace uniconv::core
     bool CLIPlugin::supports_target(const std::string &target) const
     {
         auto lower = to_lower(target);
-        for (const auto &t : manifest_.targets)
+        for (const auto &[t, _] : manifest_.targets)
         {
             if (to_lower(t) == lower)
             {
@@ -332,14 +332,17 @@ namespace uniconv::core
 
     bool CLIPlugin::supports_input(const std::string &format) const
     {
+        // Prefer accepts over input_formats
+        const auto &formats = manifest_.accepts.empty() ? manifest_.input_formats : manifest_.accepts;
+
         // If no input formats specified, accept all
-        if (manifest_.input_formats.empty())
+        if (formats.empty())
         {
             return true;
         }
 
         auto lower = to_lower(format);
-        for (const auto &f : manifest_.input_formats)
+        for (const auto &f : formats)
         {
             if (to_lower(f) == lower)
             {

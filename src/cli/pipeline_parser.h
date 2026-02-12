@@ -8,6 +8,13 @@
 
 namespace uniconv::cli {
 
+// Result of parsing a pipeline identifier like "scope/plugin:target.ext"
+struct ParsedIdentifier {
+    std::string target;
+    std::optional<std::string> plugin;
+    std::optional<std::string> extension;
+};
+
 class PipelineParser {
 public:
     struct ParseResult {
@@ -50,11 +57,11 @@ private:
     // Split by comma, respecting quotes
     std::vector<std::string> split_elements(const std::string& stage);
 
-    // Parse a single element: "jpg@vips --quality 90"
+    // Parse a single element: "scope/plugin:target.ext --opt val"
     core::StageElement parse_element(const std::string& element_str);
 
-    // Parse target[@plugin] part
-    std::pair<std::string, std::optional<std::string>> parse_target(const std::string& target);
+    // Parse [scope/plugin:]target[.ext]
+    ParsedIdentifier parse_target(const std::string& target);
 
     // Parse options from tokenized strings
     std::pair<std::map<std::string, std::string>, std::vector<std::string>>

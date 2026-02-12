@@ -86,7 +86,7 @@ TEST_F(PipelineParserTest, SingleStageWithEqualsFormat)
 
 TEST_F(PipelineParserTest, PluginSpecification)
 {
-    auto result = parser.parse("jpg@vips", test_source, default_options);
+    auto result = parser.parse("vips:jpg", test_source, default_options);
 
     ASSERT_TRUE(result.success) << "Parse failed: " << result.error;
 
@@ -98,7 +98,7 @@ TEST_F(PipelineParserTest, PluginSpecification)
 
 TEST_F(PipelineParserTest, PluginWithOptions)
 {
-    auto result = parser.parse("jpg@vips --quality 90", test_source, default_options);
+    auto result = parser.parse("vips:jpg --quality 90", test_source, default_options);
 
     ASSERT_TRUE(result.success) << "Parse failed: " << result.error;
 
@@ -211,7 +211,7 @@ TEST_F(PipelineParserTest, TeeWithOptionsOnBranches)
 
 TEST_F(PipelineParserTest, TeeWithPluginsOnBranches)
 {
-    auto result = parser.parse("tee | jpg@vips --quality 90, png@imagemagick --compress 9", test_source, default_options);
+    auto result = parser.parse("tee | vips:jpg --quality 90, imagemagick:png --compress 9", test_source, default_options);
 
     ASSERT_TRUE(result.success) << "Parse failed: " << result.error;
 
@@ -437,4 +437,120 @@ TEST_F(PipelineParserTest, SourcePreserved)
 
     ASSERT_TRUE(result.success) << "Parse failed: " << result.error;
     EXPECT_EQ(result.pipeline.source, test_source);
+}
+
+// ============================================================================
+// Colon Syntax — [scope/plugin:]target[.ext]
+// ============================================================================
+
+TEST_F(PipelineParserTest, ColonSyntaxPluginAndTarget)
+{
+    auto result = parser.parse("postgis:extract", test_source, default_options);
+
+    ASSERT_TRUE(result.success) << "Parse failed: " << result.error;
+    ASSERT_EQ(result.pipeline.stages.size(), 1);
+
+    const auto &elem = result.pipeline.stages[0].elements[0];
+    EXPECT_EQ(elem.target, "extract");
+    ASSERT_TRUE(elem.plugin.has_value());
+    EXPECT_EQ(*elem.plugin, "postgis");
+    EXPECT_FALSE(elem.extension.has_value());
+}
+
+TEST_F(PipelineParserTest, ColonSyntaxScopedPluginWithExtension)
+{
+    auto result = parser.parse("geo/postgis:extract.geojson", test_source, default_options);
+
+    ASSERT_TRUE(result.success) << "Parse failed: " << result.error;
+
+    const auto &elem = result.pipeline.stages[0].elements[0];
+    EXPECT_EQ(elem.target, "extract");
+    ASSERT_TRUE(elem.plugin.has_value());
+    EXPECT_EQ(*elem.plugin, "geo/postgis");
+    ASSERT_TRUE(elem.extension.has_value());
+    EXPECT_EQ(*elem.extension, "geojson");
+}
+
+TEST_F(PipelineParserTest, ColonSyntaxScopedPluginThumbnail)
+{
+    auto result = parser.parse("myorg/video:thumbnail.png", test_source, default_options);
+
+    ASSERT_TRUE(result.success) << "Parse failed: " << result.error;
+
+    const auto &elem = result.pipeline.stages[0].elements[0];
+    EXPECT_EQ(elem.target, "thumbnail");
+    ASSERT_TRUE(elem.plugin.has_value());
+    EXPECT_EQ(*elem.plugin, "myorg/video");
+    ASSERT_TRUE(elem.extension.has_value());
+    EXPECT_EQ(*elem.extension, "png");
+}
+
+TEST_F(PipelineParserTest, PlainTargetNoExtension)
+{
+    auto result = parser.parse("fgb", test_source, default_options);
+
+    ASSERT_TRUE(result.success) << "Parse failed: " << result.error;
+
+    const auto &elem = result.pipeline.stages[0].elements[0];
+    EXPECT_EQ(elem.target, "fgb");
+    EXPECT_FALSE(elem.plugin.has_value());
+    EXPECT_FALSE(elem.extension.has_value());
+}
+
+TEST_F(PipelineParserTest, AtSignIsNotPluginSpecifier)
+{
+    // @ is no longer a plugin specifier — treated as part of target name
+    auto result = parser.parse("jpg@vips", test_source, default_options);
+
+    ASSERT_TRUE(result.success) << "Parse failed: " << result.error;
+
+    const auto &elem = result.pipeline.stages[0].elements[0];
+    // "jpg@vips" has a dot-split on rfind('.') which finds nothing,
+    // so target is the whole string
+    EXPECT_EQ(elem.target, "jpg@vips");
+    EXPECT_FALSE(elem.plugin.has_value());
+    EXPECT_FALSE(elem.extension.has_value());
+}
+
+TEST_F(PipelineParserTest, ColonSyntaxWithOptions)
+{
+    auto result = parser.parse("geo/postgis:extract.geojson --confidence 0.9", test_source, default_options);
+
+    ASSERT_TRUE(result.success) << "Parse failed: " << result.error;
+
+    const auto &elem = result.pipeline.stages[0].elements[0];
+    EXPECT_EQ(elem.target, "extract");
+    EXPECT_EQ(*elem.plugin, "geo/postgis");
+    EXPECT_EQ(*elem.extension, "geojson");
+    EXPECT_EQ(elem.options.at("confidence"), "0.9");
+}
+
+TEST_F(PipelineParserTest, ColonSyntaxInPipeline)
+{
+    auto result = parser.parse("geo/postgis:extract.geojson | fgb", test_source, default_options);
+
+    ASSERT_TRUE(result.success) << "Parse failed: " << result.error;
+    ASSERT_EQ(result.pipeline.stages.size(), 2);
+
+    const auto &stage1 = result.pipeline.stages[0].elements[0];
+    EXPECT_EQ(stage1.target, "extract");
+    EXPECT_EQ(*stage1.plugin, "geo/postgis");
+    EXPECT_EQ(*stage1.extension, "geojson");
+
+    const auto &stage2 = result.pipeline.stages[1].elements[0];
+    EXPECT_EQ(stage2.target, "fgb");
+    EXPECT_FALSE(stage2.plugin.has_value());
+}
+
+TEST_F(PipelineParserTest, PlainTargetWithExtension)
+{
+    auto result = parser.parse("extract.geojson", test_source, default_options);
+
+    ASSERT_TRUE(result.success) << "Parse failed: " << result.error;
+
+    const auto &elem = result.pipeline.stages[0].elements[0];
+    EXPECT_EQ(elem.target, "extract");
+    ASSERT_TRUE(elem.extension.has_value());
+    EXPECT_EQ(*elem.extension, "geojson");
+    EXPECT_FALSE(elem.plugin.has_value());
 }

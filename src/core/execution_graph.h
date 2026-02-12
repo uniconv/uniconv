@@ -16,6 +16,8 @@ struct ExecutionNode {
 
     std::string target;                              // "jpg", "clipboard", "tee"
     std::optional<std::string> plugin;               // Explicit plugin if specified
+    std::optional<std::string> extension;            // Explicit .ext from identifier
+    std::string resolved_extension;                  // Resolved for file naming
     std::vector<std::string> plugin_options;         // Options for the plugin
     std::map<std::string, std::string> options;      // Parsed options
 

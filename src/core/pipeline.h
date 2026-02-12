@@ -10,10 +10,11 @@
 
 namespace uniconv::core {
 
-// A single element in a pipeline stage (e.g., "jpg --quality 90" or "jpg@vips")
+// A single element in a pipeline stage (e.g., "jpg --quality 90" or "vips:jpg")
 struct StageElement {
     std::string target;                              // "jpg", "faces", "gdrive", "tee", "clipboard"
     std::optional<std::string> plugin;               // Explicit plugin: "vips", "ffmpeg"
+    std::optional<std::string> extension;            // Explicit .ext from identifier
     std::map<std::string, std::string> options;      // Parsed options: {"quality": "90"}
     std::vector<std::string> raw_options;            // Raw option strings for plugin
 
@@ -30,6 +31,9 @@ struct StageElement {
         j["target"] = target;
         if (plugin) {
             j["plugin"] = *plugin;
+        }
+        if (extension) {
+            j["extension"] = *extension;
         }
         j["options"] = options;
         j["raw_options"] = raw_options;

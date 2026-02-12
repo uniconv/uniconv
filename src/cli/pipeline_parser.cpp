@@ -201,7 +201,7 @@ std::vector<std::string> PipelineParser::split_respecting_quotes(
     return result;
 }
 
-// Parse a single element: "jpg@vips --quality 90"
+// Parse a single element: "scope/plugin:target.ext --opt val"
 core::StageElement PipelineParser::parse_element(const std::string& element_str) {
     core::StageElement element;
 
@@ -212,10 +212,11 @@ core::StageElement PipelineParser::parse_element(const std::string& element_str)
         return element;
     }
 
-    // First token is target[@plugin]
-    auto [target, plugin] = parse_target(tokens[0]);
-    element.target = target;
-    element.plugin = plugin;
+    // First token is [scope/plugin:]target[.ext]
+    auto id = parse_target(tokens[0]);
+    element.target = id.target;
+    element.plugin = id.plugin;
+    element.extension = id.extension;
 
     // Remaining tokens are options
     if (tokens.size() > 1) {
@@ -228,19 +229,37 @@ core::StageElement PipelineParser::parse_element(const std::string& element_str)
     return element;
 }
 
-// Parse target[@plugin]
-std::pair<std::string, std::optional<std::string>> PipelineParser::parse_target(
-    const std::string& target_str) {
+// Parse [scope/plugin:]target[.ext]
+ParsedIdentifier PipelineParser::parse_target(const std::string& target_str) {
+    ParsedIdentifier result;
 
-    auto pos = target_str.find('@');
-    if (pos == std::string::npos) {
-        return {target_str, std::nullopt};
+    // Check for colon syntax: [scope/plugin:]target[.ext]
+    auto colon_pos = target_str.find(':');
+    if (colon_pos != std::string::npos) {
+        result.plugin = target_str.substr(0, colon_pos);
+        std::string remainder = target_str.substr(colon_pos + 1);
+
+        // Split remainder on last '.' for target.ext
+        auto dot_pos = remainder.rfind('.');
+        if (dot_pos != std::string::npos && dot_pos > 0) {
+            result.target = remainder.substr(0, dot_pos);
+            result.extension = remainder.substr(dot_pos + 1);
+        } else {
+            result.target = remainder;
+        }
+        return result;
     }
 
-    std::string target = target_str.substr(0, pos);
-    std::string plugin = target_str.substr(pos + 1);
-
-    return {target, plugin};
+    // Plain target (may have .ext)
+    // Only split on dot if there's a meaningful target name before it
+    auto dot_pos = target_str.rfind('.');
+    if (dot_pos != std::string::npos && dot_pos > 0) {
+        result.target = target_str.substr(0, dot_pos);
+        result.extension = target_str.substr(dot_pos + 1);
+    } else {
+        result.target = target_str;
+    }
+    return result;
 }
 
 // Parse options from tokens

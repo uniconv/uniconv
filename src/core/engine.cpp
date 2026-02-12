@@ -66,10 +66,16 @@ namespace uniconv::core
 
         if (!plugin)
         {
-            return Result::failure(
-                request.target,
-                request.source,
-                "No plugin found for: " + input_format + " -> " + request.target);
+            std::string msg;
+            if (request.plugin)
+            {
+                msg = "Plugin '" + *request.plugin + "' not found for target: " + request.target;
+            }
+            else
+            {
+                msg = "No plugin found for: " + input_format + " -> " + request.target;
+            }
+            return Result::failure(request.target, request.source, msg);
         }
 
         // Check if plugin supports the input format (skip for generators and directory inputs)
