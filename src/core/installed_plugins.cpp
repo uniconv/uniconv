@@ -106,4 +106,40 @@ namespace uniconv::core
         return it != plugins_.end() && it->second.source == "registry";
     }
 
+    bool InstalledPlugins::reconcile(const std::vector<PluginManifest> &on_disk)
+    {
+        std::map<std::string, const PluginManifest *> disk_map;
+        for (const auto &m : on_disk)
+            disk_map[m.name] = &m;
+
+        bool changed = false;
+
+        // Remove entries not on disk
+        for (auto it = plugins_.begin(); it != plugins_.end();)
+        {
+            if (disk_map.find(it->first) == disk_map.end())
+            {
+                it = plugins_.erase(it);
+                changed = true;
+            }
+            else
+            {
+                ++it;
+            }
+        }
+
+        // Update version if on-disk manifest differs
+        for (auto &[name, record] : plugins_)
+        {
+            auto dit = disk_map.find(name);
+            if (dit != disk_map.end() && dit->second->version != record.version)
+            {
+                record.version = dit->second->version;
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
 } // namespace uniconv::core

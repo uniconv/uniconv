@@ -1,10 +1,12 @@
 #pragma once
 
+#include "plugin_manifest.h"
 #include "registry_types.h"
 #include <filesystem>
 #include <map>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace uniconv::core
 {
@@ -34,6 +36,12 @@ namespace uniconv::core
 
         // Check if a plugin was installed from registry
         bool is_registry_installed(const std::string &name) const;
+
+        // Reconcile installed records against on-disk plugin manifests.
+        // Removes entries whose plugins no longer exist on disk.
+        // Updates version if on-disk manifest version differs.
+        // Returns true if any changes were made (caller should save).
+        bool reconcile(const std::vector<PluginManifest> &on_disk);
 
     private:
         std::filesystem::path file_path_;

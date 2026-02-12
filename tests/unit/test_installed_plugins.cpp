@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include "core/installed_plugins.h"
+#include "core/plugin_manifest.h"
 #include <filesystem>
+#include <vector>
 
 using namespace uniconv::core;
 
@@ -98,4 +100,62 @@ TEST_F(InstalledPluginsTest, AllPlugins)
     EXPECT_EQ(all.size(), 2);
     EXPECT_TRUE(all.contains("a"));
     EXPECT_TRUE(all.contains("b"));
+}
+
+namespace
+{
+    PluginManifest make_manifest(const std::string &name, const std::string &version)
+    {
+        PluginManifest m;
+        m.name = name;
+        m.version = version;
+        return m;
+    }
+} // namespace
+
+TEST_F(InstalledPluginsTest, ReconcilePrunesOrphan)
+{
+    InstalledPlugins installed(test_dir_);
+    installed.record_install("orphan-plugin", "1.0.0");
+
+    std::vector<PluginManifest> on_disk; // empty — plugin no longer on disk
+    EXPECT_TRUE(installed.reconcile(on_disk));
+    EXPECT_FALSE(installed.get("orphan-plugin").has_value());
+}
+
+TEST_F(InstalledPluginsTest, ReconcileKeepsValid)
+{
+    InstalledPlugins installed(test_dir_);
+    installed.record_install("good-plugin", "1.0.0");
+
+    std::vector<PluginManifest> on_disk = {make_manifest("good-plugin", "1.0.0")};
+    EXPECT_FALSE(installed.reconcile(on_disk));
+    EXPECT_TRUE(installed.get("good-plugin").has_value());
+}
+
+TEST_F(InstalledPluginsTest, ReconcileUpdatesVersion)
+{
+    InstalledPlugins installed(test_dir_);
+    installed.record_install("updated-plugin", "1.0.0");
+
+    std::vector<PluginManifest> on_disk = {make_manifest("updated-plugin", "1.1.0")};
+    EXPECT_TRUE(installed.reconcile(on_disk));
+
+    auto record = installed.get("updated-plugin");
+    ASSERT_TRUE(record.has_value());
+    EXPECT_EQ(record->version, "1.1.0");
+}
+
+TEST_F(InstalledPluginsTest, ReconcileNoChanges)
+{
+    InstalledPlugins installed(test_dir_);
+    installed.record_install("plugin-a", "1.0.0");
+    installed.record_install("plugin-b", "2.0.0");
+
+    std::vector<PluginManifest> on_disk = {
+        make_manifest("plugin-a", "1.0.0"),
+        make_manifest("plugin-b", "2.0.0"),
+    };
+    EXPECT_FALSE(installed.reconcile(on_disk));
+    EXPECT_EQ(installed.all().size(), 2);
 }

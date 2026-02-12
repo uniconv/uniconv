@@ -188,6 +188,11 @@ namespace uniconv::cli::commands
             return 1;
         }
 
+        // Reconcile installed.json against on-disk state
+        auto on_disk = discovery_.discover_all();
+        if (installed_.reconcile(on_disk))
+            installed_.save();
+
         auto collections_result = client->fetch_collections();
 
         nlohmann::json j;
