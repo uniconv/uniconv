@@ -145,8 +145,7 @@ namespace uniconv::core
 
         // Plugin configuration
         std::map<std::string, std::vector<std::string>> targets; // Supported output targets → extensions
-        std::vector<std::string> input_formats; // Supported input formats (legacy)
-        std::vector<std::string> accepts;       // Accepted input formats (preferred over input_formats)
+        std::vector<std::string> accepts;       // Accepted input formats
         std::map<std::string, std::vector<std::string>> target_input_formats; // Per-target input format overrides
 
         // Data types
@@ -184,9 +183,7 @@ namespace uniconv::core
             j["version"] = version;
             j["description"] = description;
             j["targets"] = targets;
-            j["input_formats"] = input_formats;
-            if (!accepts.empty())
-                j["accepts"] = accepts;
+            j["accepts"] = accepts;
             j["interface"] = plugin_interface_to_string(iface);
             if (!executable.empty())
                 j["executable"] = executable;
@@ -239,41 +236,22 @@ namespace uniconv::core
             PluginManifest m;
 
             m.name = j.at("name").get<std::string>();
-            m.scope = j.value("scope", j.value("group", m.name)); // Default scope to name, with backward compat for "group"
+            m.scope = j.value("scope", m.name);
             m.version = j.value("version", "0.0.0");
             m.description = j.value("description", "");
 
-            // Targets: support both array (backward compat) and map format
-            if (j.contains("targets"))
+            // Targets: map<string, vector<string>>
+            if (j.contains("targets") && j.at("targets").is_object())
             {
-                if (j.at("targets").is_array())
-                {
-                    // Old format: ["jpg", "png"] → {"jpg": [], "png": []}
-                    for (const auto &t : j.at("targets"))
-                    {
-                        m.targets[t.get<std::string>()] = {};
-                    }
-                }
-                else if (j.at("targets").is_object())
-                {
-                    // New format: {"extract": ["geojson", "csv"]}
-                    m.targets = j.at("targets").get<std::map<std::string, std::vector<std::string>>>();
-                }
+                m.targets = j.at("targets").get<std::map<std::string, std::vector<std::string>>>();
             }
-            // Input formats: prefer "accepts" over "input_formats"
+
+            // Accepted input formats
             if (j.contains("accepts"))
             {
                 m.accepts = j.at("accepts").get<std::vector<std::string>>();
             }
-            if (j.contains("input_formats"))
-            {
-                m.input_formats = j.at("input_formats").get<std::vector<std::string>>();
-                // Populate accepts from input_formats if accepts not provided
-                if (m.accepts.empty())
-                {
-                    m.accepts = m.input_formats;
-                }
-            }
+
             if (j.contains("target_input_formats") && j.at("target_input_formats").is_object())
             {
                 m.target_input_formats = j.at("target_input_formats").get<std::map<std::string, std::vector<std::string>>>();
@@ -315,7 +293,6 @@ namespace uniconv::core
             info.id = id();
             info.scope = scope;
             info.targets = targets;
-            info.input_formats = input_formats;
             info.accepts = accepts;
             info.input_types = input_types;
             info.output_types = output_types;

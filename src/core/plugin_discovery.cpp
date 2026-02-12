@@ -1,4 +1,5 @@
 #include "plugin_discovery.h"
+#include "utils/file_utils.h"
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
@@ -155,6 +156,40 @@ std::optional<PluginManifest> PluginDiscovery::load_manifest_file(const std::fil
         auto manifest = PluginManifest::from_json(j);
         manifest.manifest_path = manifest_path;
         manifest.plugin_dir = manifest_path.parent_path();
+
+        // Derive input_types from accepts if not explicitly provided
+        if (manifest.input_types.empty() && !manifest.accepts.empty())
+        {
+            std::set<DataType> types;
+            for (const auto &fmt : manifest.accepts)
+            {
+                for (auto t : utils::detect_input_types(fmt))
+                    types.insert(t);
+            }
+            manifest.input_types.assign(types.begin(), types.end());
+        }
+
+        // Derive output_types from targets if not explicitly provided
+        if (manifest.output_types.empty() && !manifest.targets.empty())
+        {
+            std::set<DataType> types;
+            for (const auto &[target, extensions] : manifest.targets)
+            {
+                if (extensions.empty())
+                {
+                    // Converter-type: target is the format
+                    for (auto t : utils::detect_input_types(target))
+                        types.insert(t);
+                }
+                else
+                {
+                    // Operation-type: first extension is the default output format
+                    for (auto t : utils::detect_input_types(extensions[0]))
+                        types.insert(t);
+                }
+            }
+            manifest.output_types.assign(types.begin(), types.end());
+        }
 
         return manifest;
     } catch (const std::exception&) {

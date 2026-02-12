@@ -332,8 +332,7 @@ namespace uniconv::core
 
     bool CLIPlugin::supports_input(const std::string &format) const
     {
-        // Prefer accepts over input_formats
-        const auto &formats = manifest_.accepts.empty() ? manifest_.input_formats : manifest_.accepts;
+        const auto &formats = manifest_.accepts;
 
         // If no input formats specified, accept all
         if (formats.empty())

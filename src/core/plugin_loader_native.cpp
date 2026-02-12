@@ -117,28 +117,12 @@ namespace uniconv::core
             }
         }
 
-        // Copy input formats
+        // Map native input_formats to accepts
         if (native_info->input_formats)
         {
             for (const char **f = native_info->input_formats; *f != nullptr; ++f)
             {
-                cached_info_.input_formats.emplace_back(*f);
-            }
-        }
-
-        // Copy input/output data types
-        if (native_info->input_types)
-        {
-            for (const UniconvDataType *t = native_info->input_types; *t != 0; ++t)
-            {
-                cached_info_.input_types.push_back(static_cast<DataType>(*t));
-            }
-        }
-        if (native_info->output_types)
-        {
-            for (const UniconvDataType *t = native_info->output_types; *t != 0; ++t)
-            {
-                cached_info_.output_types.push_back(static_cast<DataType>(*t));
+                cached_info_.accepts.emplace_back(*f);
             }
         }
 
@@ -164,8 +148,7 @@ namespace uniconv::core
     {
         auto plugin_info = info();
 
-        // Prefer accepts over input_formats
-        const auto &formats = plugin_info.accepts.empty() ? plugin_info.input_formats : plugin_info.accepts;
+        const auto &formats = plugin_info.accepts;
 
         // If no input formats specified, accept all
         if (formats.empty())

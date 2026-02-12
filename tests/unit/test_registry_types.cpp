@@ -80,7 +80,7 @@ TEST(PluginManifestTest, WithDependencies)
         {"version", "1.0.0"},
         {"interface", "cli"},
         {"executable", "grayscale.py"},
-        {"targets", {"grayscale"}},
+        {"targets", nlohmann::json::object({{"grayscale", nlohmann::json::array()}})},
         {"dependencies",
          {{{"name", "python3"}, {"type", "system"}, {"version", ">=3.8"}},
           {{"name", "Pillow"}, {"type", "python"}, {"version", ">=9.0"}}}}};
@@ -100,7 +100,7 @@ TEST(PluginManifestTest, WithoutDependencies)
         {"version", "1.0.0"},
         {"interface", "native"},
         {"library", "libimage_invert"},
-        {"targets", {"invert"}}};
+        {"targets", nlohmann::json::object({{"invert", nlohmann::json::array()}})}};
 
     auto manifest = PluginManifest::from_json(j);
     EXPECT_TRUE(manifest.dependencies.empty());
@@ -242,24 +242,6 @@ TEST(InstalledPluginRecordTest, RoundTrip)
 // Map-based targets format
 // ============================================================================
 
-TEST(PluginManifestTest, TargetsArrayFormat)
-{
-    // Old format: array of strings → converted to map with empty vectors
-    nlohmann::json j = {
-        {"name", "image-grayscale"},
-        {"version", "1.0.0"},
-        {"interface", "cli"},
-        {"executable", "grayscale.py"},
-        {"targets", {"grayscale", "sepia"}}};
-
-    auto manifest = PluginManifest::from_json(j);
-    ASSERT_EQ(manifest.targets.size(), 2);
-    EXPECT_TRUE(manifest.targets.count("grayscale"));
-    EXPECT_TRUE(manifest.targets.count("sepia"));
-    EXPECT_TRUE(manifest.targets.at("grayscale").empty());
-    EXPECT_TRUE(manifest.targets.at("sepia").empty());
-}
-
 TEST(PluginManifestTest, TargetsMapFormat)
 {
     // New format: map of target → extensions
@@ -287,7 +269,7 @@ TEST(PluginManifestTest, AcceptsField)
         {"version", "1.0.0"},
         {"interface", "cli"},
         {"executable", "geo.py"},
-        {"targets", {"extract"}},
+        {"targets", {{"extract", {"geojson", "csv"}}}},
         {"accepts", {"shp", "gpkg", "geojson"}}};
 
     auto manifest = PluginManifest::from_json(j);
@@ -295,23 +277,6 @@ TEST(PluginManifestTest, AcceptsField)
     EXPECT_EQ(manifest.accepts[0], "shp");
     EXPECT_EQ(manifest.accepts[1], "gpkg");
     EXPECT_EQ(manifest.accepts[2], "geojson");
-}
-
-TEST(PluginManifestTest, AcceptsFallsBackToInputFormats)
-{
-    nlohmann::json j = {
-        {"name", "converter"},
-        {"version", "1.0.0"},
-        {"interface", "cli"},
-        {"executable", "conv.py"},
-        {"targets", {"jpg"}},
-        {"input_formats", {"png", "bmp"}}};
-
-    auto manifest = PluginManifest::from_json(j);
-    // No explicit accepts, so it should fall back to input_formats
-    ASSERT_EQ(manifest.accepts.size(), 2);
-    EXPECT_EQ(manifest.accepts[0], "png");
-    EXPECT_EQ(manifest.accepts[1], "bmp");
 }
 
 TEST(PluginManifestTest, TargetsMapRoundTrip)

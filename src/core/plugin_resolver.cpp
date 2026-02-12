@@ -181,13 +181,13 @@ namespace uniconv::core
         {
             auto info = plugin->info();
 
-            // ┌─────────────────────────────────────────────────────────┐
-            // │  PAIR MATCHING: Both input AND output must match        │
-            // │                                                         │
-            // │  input_format ──┬── plugin.input_formats  (INPUT side)  │
-            // │                 │                                       │
-            // │  target ────────┴── plugin.targets        (OUTPUT side) │
-            // └─────────────────────────────────────────────────────────┘
+            // ┌────────────────────────────────────────────────────┐
+            // │  PAIR MATCHING: Both input AND output must match   │
+            // │                                                    │
+            // │  input_format ──┬── plugin.accepts  (INPUT side)   │
+            // │                 │                                   │
+            // │  target ────────┴── plugin.targets  (OUTPUT side)  │
+            // └────────────────────────────────────────────────────┘
 
             // Check 1: OUTPUT - Plugin can produce the target format
             if (!plugin->supports_target(lower_target))

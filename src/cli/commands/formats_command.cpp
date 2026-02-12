@@ -19,7 +19,7 @@ namespace uniconv::cli::commands
 
         for (const auto &plugin : plugins)
         {
-            for (const auto &fmt : plugin.input_formats)
+            for (const auto &fmt : plugin.accepts)
             {
                 all_inputs.insert(fmt);
             }

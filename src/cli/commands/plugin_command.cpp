@@ -828,11 +828,11 @@ namespace uniconv::cli::commands
                 }
                 text << "\n";
                 text << "Inputs:      ";
-                for (size_t i = 0; i < p.input_formats.size(); ++i)
+                for (size_t i = 0; i < p.accepts.size(); ++i)
                 {
                     if (i > 0)
                         text << ", ";
-                    text << p.input_formats[i];
+                    text << p.accepts[i];
                 }
 
                 output_->data(j, text.str());
@@ -894,11 +894,11 @@ namespace uniconv::cli::commands
         text << "\n";
 
         text << "Inputs:      ";
-        for (size_t i = 0; i < manifest->input_formats.size(); ++i)
+        for (size_t i = 0; i < manifest->accepts.size(); ++i)
         {
             if (i > 0)
                 text << ", ";
-            text << manifest->input_formats[i];
+            text << manifest->accepts[i];
         }
 
         if (!manifest->options.empty())
