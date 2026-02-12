@@ -145,7 +145,7 @@ namespace uniconv::core
 
         // Plugin configuration
         std::map<std::string, std::vector<std::string>> targets; // Supported output targets → extensions
-        std::vector<std::string> accepts;       // Accepted input formats
+        std::optional<std::vector<std::string>> accepts; // nullopt=accept all, empty=accept nothing, values=accept listed
         bool sink = false;                      // Sink plugin: owns output, uniconv skips finalization
         std::map<std::string, std::vector<std::string>> target_input_formats; // Per-target input format overrides
 
@@ -184,7 +184,8 @@ namespace uniconv::core
             j["version"] = version;
             j["description"] = description;
             j["targets"] = targets;
-            j["accepts"] = accepts;
+            if (accepts.has_value())
+                j["accepts"] = *accepts;
             if (sink)
                 j["sink"] = true;
             j["interface"] = plugin_interface_to_string(iface);
@@ -243,17 +244,29 @@ namespace uniconv::core
             m.version = j.value("version", "0.0.0");
             m.description = j.value("description", "");
 
-            // Targets: map<string, vector<string>>
-            if (j.contains("targets") && j.at("targets").is_object())
+            // Targets: map or array shortcut
+            if (j.contains("targets"))
             {
-                m.targets = j.at("targets").get<std::map<std::string, std::vector<std::string>>>();
+                if (j.at("targets").is_object())
+                {
+                    m.targets = j.at("targets").get<std::map<std::string, std::vector<std::string>>>();
+                }
+                else if (j.at("targets").is_array())
+                {
+                    // Shortcut: ["jpg", "png"] → {"jpg": [], "png": []}
+                    for (const auto &t : j.at("targets"))
+                    {
+                        m.targets[t.get<std::string>()] = {};
+                    }
+                }
             }
 
-            // Accepted input formats
+            // Accepted input formats: omitted=accept all, []=accept nothing
             if (j.contains("accepts"))
             {
                 m.accepts = j.at("accepts").get<std::vector<std::string>>();
             }
+            // else: stays nullopt → accept all
 
             // Sink flag
             m.sink = j.value("sink", false);

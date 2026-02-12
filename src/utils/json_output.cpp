@@ -175,9 +175,9 @@ namespace uniconv::utils
             }
             os << "  Targets: " << target_str << std::endl;
         }
-        if (!info.accepts.empty())
+        if (info.accepts.has_value() && !info.accepts->empty())
         {
-            os << "  Input formats: " << join(info.accepts, ", ") << std::endl;
+            os << "  Input formats: " << join(*info.accepts, ", ") << std::endl;
         }
     }
 

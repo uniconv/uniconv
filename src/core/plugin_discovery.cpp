@@ -158,10 +158,10 @@ std::optional<PluginManifest> PluginDiscovery::load_manifest_file(const std::fil
         manifest.plugin_dir = manifest_path.parent_path();
 
         // Derive input_types from accepts if not explicitly provided
-        if (manifest.input_types.empty() && !manifest.accepts.empty())
+        if (manifest.input_types.empty() && manifest.accepts.has_value() && !manifest.accepts->empty())
         {
             std::set<DataType> types;
-            for (const auto &fmt : manifest.accepts)
+            for (const auto &fmt : *manifest.accepts)
             {
                 for (auto t : utils::detect_input_types(fmt))
                     types.insert(t);

@@ -304,7 +304,7 @@ namespace uniconv::core
         std::string id;                         // Full ID: "image-core"
         std::string scope;                      // Plugin scope: "image-core"
         std::map<std::string, std::vector<std::string>> targets; // Supported targets → extensions
-        std::vector<std::string> accepts;       // Accepted input formats
+        std::optional<std::vector<std::string>> accepts; // nullopt=accept all, empty=accept nothing, values=accept listed
         std::map<std::string, std::vector<std::string>> target_input_formats; // Per-target input format overrides
         std::string version;
         std::string description;
@@ -322,10 +322,12 @@ namespace uniconv::core
                 {"id", id},
                 {"scope", scope},
                 {"targets", targets},
-                {"accepts", accepts},
                 {"version", version},
                 {"description", description},
                 {"builtin", builtin}};
+
+            if (accepts.has_value())
+                j["accepts"] = *accepts;
 
             if (sink)
                 j["sink"] = true;

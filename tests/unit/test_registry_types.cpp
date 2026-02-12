@@ -273,10 +273,11 @@ TEST(PluginManifestTest, AcceptsField)
         {"accepts", {"shp", "gpkg", "geojson"}}};
 
     auto manifest = PluginManifest::from_json(j);
-    ASSERT_EQ(manifest.accepts.size(), 3);
-    EXPECT_EQ(manifest.accepts[0], "shp");
-    EXPECT_EQ(manifest.accepts[1], "gpkg");
-    EXPECT_EQ(manifest.accepts[2], "geojson");
+    ASSERT_TRUE(manifest.accepts.has_value());
+    ASSERT_EQ(manifest.accepts->size(), 3);
+    EXPECT_EQ((*manifest.accepts)[0], "shp");
+    EXPECT_EQ((*manifest.accepts)[1], "gpkg");
+    EXPECT_EQ((*manifest.accepts)[2], "geojson");
 }
 
 TEST(PluginManifestTest, SinkFlag)
@@ -322,6 +323,66 @@ TEST(PluginManifestTest, SinkFlagDefaultFalse)
     EXPECT_FALSE(out.contains("sink"));
 }
 
+TEST(PluginManifestTest, AcceptsOmittedMeansAll)
+{
+    // No accepts field → nullopt → accept all
+    nlohmann::json j = {
+        {"name", "any-plugin"},
+        {"version", "1.0.0"},
+        {"interface", "cli"},
+        {"executable", "any.py"},
+        {"targets", {{"process", nlohmann::json::array()}}}};
+
+    auto manifest = PluginManifest::from_json(j);
+    EXPECT_FALSE(manifest.accepts.has_value());
+
+    // to_json should not include accepts
+    auto out = manifest.to_json();
+    EXPECT_FALSE(out.contains("accepts"));
+}
+
+TEST(PluginManifestTest, AcceptsEmptyMeansNothing)
+{
+    // accepts: [] → empty vector → accept nothing
+    nlohmann::json j = {
+        {"name", "strict-plugin"},
+        {"version", "1.0.0"},
+        {"interface", "cli"},
+        {"executable", "strict.py"},
+        {"targets", {{"process", nlohmann::json::array()}}},
+        {"accepts", nlohmann::json::array()}};
+
+    auto manifest = PluginManifest::from_json(j);
+    ASSERT_TRUE(manifest.accepts.has_value());
+    EXPECT_TRUE(manifest.accepts->empty());
+
+    // to_json includes empty accepts
+    auto out = manifest.to_json();
+    ASSERT_TRUE(out.contains("accepts"));
+    EXPECT_TRUE(out["accepts"].is_array());
+    EXPECT_TRUE(out["accepts"].empty());
+}
+
+TEST(PluginManifestTest, TargetsArrayShortcut)
+{
+    // Array shortcut: ["jpg", "png"] → {"jpg": [], "png": []}
+    nlohmann::json j = {
+        {"name", "image-convert"},
+        {"version", "1.0.0"},
+        {"interface", "cli"},
+        {"executable", "convert.py"},
+        {"targets", {"jpg", "png", "gif"}}};
+
+    auto manifest = PluginManifest::from_json(j);
+    ASSERT_EQ(manifest.targets.size(), 3);
+    EXPECT_TRUE(manifest.targets.count("jpg"));
+    EXPECT_TRUE(manifest.targets.count("png"));
+    EXPECT_TRUE(manifest.targets.count("gif"));
+    EXPECT_TRUE(manifest.targets.at("jpg").empty());
+    EXPECT_TRUE(manifest.targets.at("png").empty());
+    EXPECT_TRUE(manifest.targets.at("gif").empty());
+}
+
 TEST(PluginManifestTest, TargetsMapRoundTrip)
 {
     PluginManifest m;
@@ -329,7 +390,7 @@ TEST(PluginManifestTest, TargetsMapRoundTrip)
     m.scope = "test-plugin";
     m.version = "1.0.0";
     m.targets = {{"extract", {"geojson", "csv"}}, {"transform", {}}};
-    m.accepts = {"shp", "gpkg"};
+    m.accepts = std::vector<std::string>{"shp", "gpkg"};
 
     auto j = m.to_json();
 
@@ -344,6 +405,7 @@ TEST(PluginManifestTest, TargetsMapRoundTrip)
     EXPECT_EQ(m2.targets.at("extract").size(), 2);
     EXPECT_EQ(m2.targets.at("extract")[0], "geojson");
     EXPECT_TRUE(m2.targets.at("transform").empty());
-    ASSERT_EQ(m2.accepts.size(), 2);
-    EXPECT_EQ(m2.accepts[0], "shp");
+    ASSERT_TRUE(m2.accepts.has_value());
+    ASSERT_EQ(m2.accepts->size(), 2);
+    EXPECT_EQ((*m2.accepts)[0], "shp");
 }

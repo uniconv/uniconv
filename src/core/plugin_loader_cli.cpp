@@ -332,12 +332,18 @@ namespace uniconv::core
 
     bool CLIPlugin::supports_input(const std::string &format) const
     {
-        const auto &formats = manifest_.accepts;
-
-        // If no input formats specified, accept all
-        if (formats.empty())
+        // nullopt (field omitted) → accept all
+        if (!manifest_.accepts.has_value())
         {
             return true;
+        }
+
+        const auto &formats = *manifest_.accepts;
+
+        // Empty array → accept nothing
+        if (formats.empty())
+        {
+            return false;
         }
 
         auto lower = to_lower(format);

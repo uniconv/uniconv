@@ -121,11 +121,14 @@ namespace uniconv::core
         // Map native input_formats to accepts
         if (native_info->input_formats)
         {
+            std::vector<std::string> fmts;
             for (const char **f = native_info->input_formats; *f != nullptr; ++f)
             {
-                cached_info_.accepts.emplace_back(*f);
+                fmts.emplace_back(*f);
             }
+            cached_info_.accepts = std::move(fmts);
         }
+        // else: stays nullopt → accept all
 
         info_cached_ = true;
         return cached_info_;
@@ -149,12 +152,18 @@ namespace uniconv::core
     {
         auto plugin_info = info();
 
-        const auto &formats = plugin_info.accepts;
-
-        // If no input formats specified, accept all
-        if (formats.empty())
+        // nullopt (field omitted) → accept all
+        if (!plugin_info.accepts.has_value())
         {
             return true;
+        }
+
+        const auto &formats = *plugin_info.accepts;
+
+        // Empty array → accept nothing
+        if (formats.empty())
+        {
+            return false;
         }
 
         auto lower = to_lower(format);

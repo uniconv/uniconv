@@ -19,9 +19,12 @@ namespace uniconv::cli::commands
 
         for (const auto &plugin : plugins)
         {
-            for (const auto &fmt : plugin.accepts)
+            if (plugin.accepts.has_value())
             {
-                all_inputs.insert(fmt);
+                for (const auto &fmt : *plugin.accepts)
+                {
+                    all_inputs.insert(fmt);
+                }
             }
             for (const auto &[target, _] : plugin.targets)
             {

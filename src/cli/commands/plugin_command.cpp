@@ -828,11 +828,18 @@ namespace uniconv::cli::commands
                 }
                 text << "\n";
                 text << "Inputs:      ";
-                for (size_t i = 0; i < p.accepts.size(); ++i)
+                if (p.accepts.has_value())
                 {
-                    if (i > 0)
-                        text << ", ";
-                    text << p.accepts[i];
+                    for (size_t i = 0; i < p.accepts->size(); ++i)
+                    {
+                        if (i > 0)
+                            text << ", ";
+                        text << (*p.accepts)[i];
+                    }
+                }
+                else
+                {
+                    text << "(any)";
                 }
 
                 output_->data(j, text.str());
@@ -894,11 +901,18 @@ namespace uniconv::cli::commands
         text << "\n";
 
         text << "Inputs:      ";
-        for (size_t i = 0; i < manifest->accepts.size(); ++i)
+        if (manifest->accepts.has_value())
         {
-            if (i > 0)
-                text << ", ";
-            text << manifest->accepts[i];
+            for (size_t i = 0; i < manifest->accepts->size(); ++i)
+            {
+                if (i > 0)
+                    text << ", ";
+                text << (*manifest->accepts)[i];
+            }
+        }
+        else
+        {
+            text << "(any)";
         }
 
         if (!manifest->options.empty())
