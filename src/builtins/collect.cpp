@@ -1,11 +1,35 @@
 #include "collect.h"
 #include <algorithm>
 #include <cctype>
-#include <fnmatch.h>
 #include <iomanip>
 #include <sstream>
 
 namespace uniconv::builtins {
+
+// Simple cross-platform glob matching (supports * and ? wildcards)
+static bool glob_match(const char* pattern, const char* str) {
+    while (*pattern && *str) {
+        if (*pattern == '*') {
+            // Skip consecutive stars
+            while (*pattern == '*') ++pattern;
+            if (!*pattern) return true;
+            // Try matching rest of pattern at each position
+            while (*str) {
+                if (glob_match(pattern, str)) return true;
+                ++str;
+            }
+            return glob_match(pattern, str);
+        } else if (*pattern == '?' || *pattern == *str) {
+            ++pattern;
+            ++str;
+        } else {
+            return false;
+        }
+    }
+    // Skip trailing stars
+    while (*pattern == '*') ++pattern;
+    return !*pattern && !*str;
+}
 
 Collect::Result Collect::execute(
     const std::vector<std::filesystem::path>& inputs,
@@ -91,7 +115,7 @@ Collect::Result Collect::execute_directory(
             // Apply glob filter if specified
             if (!glob_pattern.empty()) {
                 std::string filename = entry.path().filename().string();
-                if (fnmatch(glob_pattern.c_str(), filename.c_str(), 0) != 0) {
+                if (!glob_match(glob_pattern.c_str(), filename.c_str())) {
                     continue;
                 }
             }
