@@ -8,6 +8,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include "utils/win_subprocess.h"
 #else
 #include <sys/wait.h>
 #include <unistd.h>
@@ -276,19 +277,8 @@ namespace uniconv::core
             CloseHandle(stdout_write);
             CloseHandle(stderr_write);
 
-            WaitForSingleObject(pi.hProcess, INFINITE);
-
-            // Read output
-            char buf[4096];
-            DWORD bytes_read;
-            while (ReadFile(stdout_read, buf, sizeof(buf), &bytes_read, NULL) && bytes_read > 0)
-            {
-                result.stdout_data.append(buf, bytes_read);
-            }
-            while (ReadFile(stderr_read, buf, sizeof(buf), &bytes_read, NULL) && bytes_read > 0)
-            {
-                result.stderr_data.append(buf, bytes_read);
-            }
+            utils::drain_and_wait(pi.hProcess, stdout_read, stderr_read,
+                                  result.stdout_data, result.stderr_data);
 
             DWORD exit_code;
             GetExitCodeProcess(pi.hProcess, &exit_code);

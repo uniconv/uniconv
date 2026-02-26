@@ -73,6 +73,25 @@ std::string shell_escape(const std::string& str) {
     return escaped;
 }
 
+#ifdef _WIN32
+// Escape string for PowerShell single-quoted strings.
+// In PowerShell, the only escape inside '...' is '' for a literal '.
+std::string powershell_escape(const std::string& str) {
+    std::string escaped;
+    escaped.reserve(str.size() + 10);
+    escaped += '\'';
+    for (char c : str) {
+        if (c == '\'') {
+            escaped += "''";
+        } else {
+            escaped += c;
+        }
+    }
+    escaped += '\'';
+    return escaped;
+}
+#endif
+
 } // anonymous namespace
 
 Clipboard::Result Clipboard::execute(const std::filesystem::path& input) {
@@ -538,7 +557,7 @@ std::optional<Clipboard::RawContent> Clipboard::read_text_from_clipboard(std::st
 
 bool Clipboard::write_text_to_clipboard(const std::string& text, std::string& error) {
     // Use PowerShell Set-Clipboard
-    std::string escaped = shell_escape(text);
+    std::string escaped = powershell_escape(text);
     std::string cmd = "powershell -command \"Set-Clipboard -Value " + escaped + "\"";
 
     int ret = execute_command(cmd);
@@ -551,7 +570,7 @@ bool Clipboard::write_text_to_clipboard(const std::string& text, std::string& er
 
 bool Clipboard::write_image_to_clipboard(const std::filesystem::path& image_path, std::string& error) {
     // Use PowerShell to copy image
-    std::string escaped_path = shell_escape(std::filesystem::absolute(image_path).string());
+    std::string escaped_path = powershell_escape(std::filesystem::absolute(image_path).string());
 
     std::string cmd = "powershell -command \"Add-Type -AssemblyName System.Windows.Forms; "
                       "[System.Windows.Forms.Clipboard]::SetImage([System.Drawing.Image]::FromFile(" +
@@ -569,7 +588,7 @@ std::optional<Clipboard::RawContent> Clipboard::read_image_from_clipboard(std::s
     // Use PowerShell to save clipboard image to temp file
     auto temp_path = std::filesystem::temp_directory_path() / "uniconv" / "clipboard_read.png";
     std::filesystem::create_directories(temp_path.parent_path());
-    std::string escaped_path = shell_escape(temp_path.string());
+    std::string escaped_path = powershell_escape(temp_path.string());
 
     std::string cmd = "powershell -command \""
         "Add-Type -AssemblyName System.Windows.Forms; "

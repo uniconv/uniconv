@@ -102,6 +102,7 @@ add_executable(uniconv
     src/utils/http_utils.cpp
     src/utils/mime_detector.h
     src/utils/mime_detector.cpp
+    src/utils/win_subprocess.h
     src/core/registry_types.h
     src/core/dependency_checker.h
     src/core/dependency_checker.cpp

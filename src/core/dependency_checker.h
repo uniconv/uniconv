@@ -39,7 +39,11 @@ namespace uniconv::core
         DependencyCheckResult check_custom(const Dependency &dep) const;
         DependencyCheckResult check_system(const Dependency &dep) const;
         DependencyCheckResult check_python(const Dependency &dep,
+#ifdef _WIN32
+                                           const std::string &python_cmd = "python") const;
+#else
                                            const std::string &python_cmd = "python3") const;
+#endif
         DependencyCheckResult check_node(const Dependency &dep) const;
 
         // Run a command and return exit code

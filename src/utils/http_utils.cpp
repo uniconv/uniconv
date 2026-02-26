@@ -1,10 +1,12 @@
 #include "http_utils.h"
 #include <array>
+#include <cctype>
 #include <cstdlib>
 #include <sstream>
 
 #ifdef _WIN32
 #include <windows.h>
+#include "utils/win_subprocess.h"
 #else
 #include <signal.h>
 #include <sys/wait.h>
@@ -208,14 +210,8 @@ namespace uniconv::utils
             CloseHandle(stderr_write);
 
             auto timeout_ms = static_cast<DWORD>(std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count());
-            WaitForSingleObject(pi.hProcess, timeout_ms);
-
-            char buf[4096];
-            DWORD bytes_read;
-            while (ReadFile(stdout_read, buf, sizeof(buf), &bytes_read, NULL) && bytes_read > 0)
-                result.stdout_data.append(buf, bytes_read);
-            while (ReadFile(stderr_read, buf, sizeof(buf), &bytes_read, NULL) && bytes_read > 0)
-                result.stderr_data.append(buf, bytes_read);
+            drain_and_wait(pi.hProcess, stdout_read, stderr_read,
+                           result.stdout_data, result.stderr_data, timeout_ms);
 
             DWORD exit_code;
             GetExitCodeProcess(pi.hProcess, &exit_code);
@@ -316,6 +312,9 @@ namespace uniconv::utils
 #ifdef __APPLE__
         std::string cmd = "shasum";
         std::vector<std::string> args = {"-a", "256", path.string()};
+#elif defined(_WIN32)
+        std::string cmd = "certutil";
+        std::vector<std::string> args = {"-hashfile", path.string(), "SHA256"};
 #else
         std::string cmd = "sha256sum";
         std::vector<std::string> args = {path.string()};
@@ -326,12 +325,35 @@ namespace uniconv::utils
         if (result.exit_code != 0)
             return std::nullopt;
 
+#ifdef _WIN32
+        // certutil output format:
+        //   SHA256 hash of <file>:
+        //   <hex hash with possible spaces>
+        //   CertUtil: -hashfile command completed successfully.
+        // Extract the second line and remove spaces
+        std::istringstream iss(result.stdout_data);
+        std::string line;
+        std::getline(iss, line); // skip first line
+        if (!std::getline(iss, line))
+            return std::nullopt;
+        // Remove spaces and whitespace
+        std::string hash;
+        for (char c : line)
+        {
+            if (c != ' ' && c != '\r' && c != '\n')
+                hash += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        }
+        if (hash.size() < 64)
+            return std::nullopt;
+        return hash;
+#else
         // Output format: "<hash>  <filename>\n"
         auto space_pos = result.stdout_data.find(' ');
         if (space_pos == std::string::npos || space_pos < 64)
             return std::nullopt;
 
         return result.stdout_data.substr(0, space_pos);
+#endif
     }
 
     std::string get_platform_string()
@@ -368,10 +390,14 @@ namespace uniconv::utils
                                                  std::chrono::seconds timeout)
     {
         auto timeout_str = std::to_string(timeout.count());
-        // Use -o /dev/null to discard body, -w to get effective URL after redirects
+        // Use -o /dev/null (or NUL on Windows) to discard body, -w to get effective URL after redirects
         std::vector<std::string> args = {
             "-sS", "-L", "--max-time", timeout_str,
+#ifdef _WIN32
+            "-o", "NUL",
+#else
             "-o", "/dev/null",
+#endif
             "-w", "%{url_effective}",
             url};
 

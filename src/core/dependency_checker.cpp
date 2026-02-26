@@ -6,6 +6,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include "utils/win_subprocess.h"
 #else
 #include <fcntl.h>
 #include <sys/wait.h>
@@ -130,12 +131,10 @@ namespace uniconv::core
             }
 
             CloseHandle(stdout_write);
-            WaitForSingleObject(pi.hProcess, 10000);
 
-            char buf[4096];
-            DWORD bytes_read;
-            while (ReadFile(stdout_read, buf, sizeof(buf), &bytes_read, NULL) && bytes_read > 0)
-                result.stdout_data.append(buf, bytes_read);
+            std::string unused_stderr;
+            utils::drain_and_wait(pi.hProcess, stdout_read, NULL,
+                                  result.stdout_data, unused_stderr, 10000);
 
             DWORD exit_code;
             GetExitCodeProcess(pi.hProcess, &exit_code);
@@ -230,7 +229,11 @@ namespace uniconv::core
         results.reserve(deps.size());
 
         // Use venv python for Python deps if the binary exists
+#ifdef _WIN32
+        std::string python_cmd = "python";
+#else
         std::string python_cmd = "python3";
+#endif
         if (!python_bin.empty() && std::filesystem::exists(python_bin))
         {
             python_cmd = python_bin.string();
@@ -291,7 +294,11 @@ namespace uniconv::core
         }
 
         // Run through shell to support operators like ||, &&, pipes, etc.
+#ifdef _WIN32
+        int exit_code = run_check_command("cmd", {"/c", *dep.check});
+#else
         int exit_code = run_check_command("sh", {"-c", *dep.check});
+#endif
 
         if (exit_code == 0)
         {
@@ -311,8 +318,19 @@ namespace uniconv::core
     {
         DependencyCheckResult result;
 
-        // Check if binary exists via 'which'
-        int exit_code = run_check_command("which", {dep.name});
+#ifdef _WIN32
+        // On Windows, "python3" doesn't exist; map to "python"
+        std::string check_name = (dep.name == "python3") ? "python" : dep.name;
+#else
+        const std::string& check_name = dep.name;
+#endif
+
+        // Check if binary exists via 'which' (or 'where' on Windows)
+#ifdef _WIN32
+        int exit_code = run_check_command("where", {check_name});
+#else
+        int exit_code = run_check_command("which", {check_name});
+#endif
 
         if (exit_code != 0)
         {
@@ -320,6 +338,8 @@ namespace uniconv::core
             result.message = dep.name + " not found in PATH";
 #ifdef __APPLE__
             result.install_hint = "brew install " + dep.name;
+#elif defined(_WIN32)
+            result.install_hint = "winget install " + dep.name;
 #else
             result.install_hint = "apt install " + dep.name;
 #endif
@@ -329,7 +349,7 @@ namespace uniconv::core
         // If version constraint, try to check version
         if (dep.version)
         {
-            auto output = run_capture_command(dep.name, {"--version"});
+            auto output = run_capture_command(check_name, {"--version"});
             auto found_version = extract_version(output);
 
             if (!found_version.empty() &&
@@ -358,7 +378,11 @@ namespace uniconv::core
         {
             result.satisfied = false;
             result.message = "Python package " + dep.name + " not installed";
+#ifdef _WIN32
+            result.install_hint = "python -m pip install ";
+#else
             result.install_hint = "python3 -m pip install ";
+#endif
             if (dep.version)
                 result.install_hint += "'" + dep.name + *dep.version + "'";
             else
@@ -386,7 +410,11 @@ namespace uniconv::core
                         result.satisfied = false;
                         result.message = dep.name + " " + found_version +
                                          " does not satisfy " + *dep.version;
+#ifdef _WIN32
+                        result.install_hint = "python -m pip install '" + dep.name + *dep.version + "'";
+#else
                         result.install_hint = "python3 -m pip install '" + dep.name + *dep.version + "'";
+#endif
                         return result;
                     }
                     break;

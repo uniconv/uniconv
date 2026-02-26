@@ -25,6 +25,7 @@
 
 #ifdef _WIN32
 #include <io.h>
+#include <windows.h>
 #define ISATTY _isatty
 #define FILENO _fileno
 #else
@@ -57,6 +58,27 @@ std::shared_ptr<core::output::IOutput> create_output(const cli::ParsedArgs& args
 
 int main(int argc, char **argv)
 {
+#ifdef _WIN32
+    // Enable ANSI escape sequences on Windows 10+
+    {
+        HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+        if (hOut != INVALID_HANDLE_VALUE) {
+            DWORD mode = 0;
+            if (GetConsoleMode(hOut, &mode)) {
+                SetConsoleMode(hOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+            }
+        }
+        HANDLE hErr = GetStdHandle(STD_ERROR_HANDLE);
+        if (hErr != INVALID_HANDLE_VALUE) {
+            DWORD mode = 0;
+            if (GetConsoleMode(hErr, &mode)) {
+                SetConsoleMode(hErr, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+            }
+        }
+        SetConsoleOutputCP(CP_UTF8);
+    }
+#endif
+
     try
     {
         // Initialize core components

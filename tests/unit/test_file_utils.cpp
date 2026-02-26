@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <filesystem>
 #include "utils/file_utils.h"
 
 using namespace uniconv::utils;
@@ -66,6 +67,8 @@ TEST(FileUtilsTest, IsUrl) {
 }
 
 TEST(FileUtilsTest, IsDirectory) {
-    EXPECT_TRUE(is_directory("/tmp"));
+    // Use a directory that exists on all platforms
+    auto temp_dir = std::filesystem::temp_directory_path();
+    EXPECT_TRUE(is_directory(temp_dir.string()));
     EXPECT_FALSE(is_directory("/nonexistent/path"));
 }

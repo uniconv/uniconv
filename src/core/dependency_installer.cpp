@@ -7,6 +7,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include "utils/win_subprocess.h"
 #else
 #include <poll.h>
 #include <sys/wait.h>
@@ -203,20 +204,8 @@ run_subprocess_impl(const std::string& command, const std::vector<std::string>& 
     CloseHandle(stdout_write);
     CloseHandle(stderr_write);
 
-    // Wait for process to complete (no timeout for installation)
-    WaitForSingleObject(pi.hProcess, INFINITE);
-
-    // Read output
-    char buf[4096];
-    DWORD bytes_read;
-    while (ReadFile(stdout_read, buf, sizeof(buf), &bytes_read, NULL) &&
-           bytes_read > 0) {
-        result.stdout_output.append(buf, bytes_read);
-    }
-    while (ReadFile(stderr_read, buf, sizeof(buf), &bytes_read, NULL) &&
-           bytes_read > 0) {
-        result.stderr_output.append(buf, bytes_read);
-    }
+    utils::drain_and_wait(pi.hProcess, stdout_read, stderr_read,
+                          result.stdout_output, result.stderr_output);
 
     DWORD exit_code;
     GetExitCodeProcess(pi.hProcess, &exit_code);
@@ -334,15 +323,16 @@ bool DependencyInstaller::remove_env(const std::string& plugin_name) {
 }
 
 bool DependencyInstaller::create_python_venv(const std::filesystem::path& venv_dir) {
-    // Run: python3 -m venv <path>
-    auto result = run_command("python3", {"-m", "venv", venv_dir.string()});
-
-    if (result.exit_code != 0) {
-        // Try with just "python" on Windows
 #ifdef _WIN32
+    // Windows: "python" is the standard command
+    auto result = run_command("python", {"-m", "venv", venv_dir.string()});
+#else
+    // Unix: try python3 first, fall back to python
+    auto result = run_command("python3", {"-m", "venv", venv_dir.string()});
+    if (result.exit_code != 0) {
         result = run_command("python", {"-m", "venv", venv_dir.string()});
-#endif
     }
+#endif
 
     return result.exit_code == 0;
 }
