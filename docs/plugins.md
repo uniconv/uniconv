@@ -70,6 +70,14 @@ Each plugin has a `plugin.json` manifest. Key fields:
 | `accepts` | `string[]` (optional) | omit = accept all | Input formats accepted. Omitted = any, `[]` = none |
 | `sink` | `bool` | `false` | Terminal plugin that owns output (upload, save) |
 
+## Windows notes
+
+All plugins support Windows. Key points:
+
+- **Native plugins** (image-convert, video-convert, audio-convert) bundle dependency DLLs alongside the plugin `.dll`. These are loaded automatically via `LoadLibraryEx`.
+- **doc-convert** bundles Pandoc. LibreOffice must be installed on the system (`C:\Program Files\LibreOffice\...`).
+- **CLI plugins** (Python-based) require Python 3.8+ in PATH. Plugin installation creates a virtual environment automatically.
+
 ## Writing plugins
 
 See the [Contributing Guide](../CONTRIBUTING.md#writing-plugins) for plugin authoring instructions.

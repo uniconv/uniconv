@@ -29,11 +29,21 @@ uniconv - "random-noise --width 512 | png"
 
 ## Install
 
+**macOS / Linux:**
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/uniconv/uniconv/main/install.sh | bash
 ```
 
-Or [build from source](docs/building.md).
+**Windows:**
+
+```powershell
+git clone https://github.com/uniconv/uniconv.git
+cd uniconv\uniconv && mkdir build && cd build
+cmake .. && cmake --build . --config Release
+```
+
+See [Building from Source](docs/building.md) for details.
 
 ## Get started
 
@@ -78,7 +88,7 @@ uniconv plugin update               # Update plugins installed
 | [Builtin Stages](docs/builtins.md)         | `tee`, `clipboard`, passthrough(`_`)             |
 | [Plugins](docs/plugins.md)                 | Installing, managing, and writing plugins        |
 | [CLI Reference](docs/cli-reference.md)     | All commands and options                         |
-| [Building from Source](docs/building.md)   | Build instructions and requirements              |
+| [Building from Source](docs/building.md)   | Build instructions and requirements (macOS, Linux, Windows) |
 
 ## Contributing
 

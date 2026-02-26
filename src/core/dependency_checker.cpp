@@ -115,10 +115,14 @@ namespace uniconv::core
 
             SetHandleInformation(stdout_read, HANDLE_FLAG_INHERIT, 0);
 
+            // Create a NUL handle to suppress stderr (like /dev/null on Unix)
+            HANDLE nul_handle = CreateFileA("NUL", GENERIC_WRITE, 0, &sa,
+                                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+
             STARTUPINFOA si = {};
             si.cb = sizeof(si);
             si.hStdOutput = stdout_write;
-            si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+            si.hStdError = nul_handle ? nul_handle : GetStdHandle(STD_ERROR_HANDLE);
             si.dwFlags |= STARTF_USESTDHANDLES;
 
             PROCESS_INFORMATION pi = {};
@@ -127,10 +131,12 @@ namespace uniconv::core
             {
                 CloseHandle(stdout_read);
                 CloseHandle(stdout_write);
+                if (nul_handle) CloseHandle(nul_handle);
                 return result;
             }
 
             CloseHandle(stdout_write);
+            if (nul_handle) CloseHandle(nul_handle);
 
             std::string unused_stderr;
             utils::drain_and_wait(pi.hProcess, stdout_read, NULL,

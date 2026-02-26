@@ -4,23 +4,39 @@
 
 - CMake 3.20+
 - C++20 compiler (Clang 14+, GCC 12+, MSVC 17+)
-- libmagic (`brew install libmagic` on macOS, `apt install libmagic-dev` on Ubuntu)
 
-## Build
+## Build (macOS / Linux)
 
 ```bash
-git clone https://github.com/anthropics/uniconv.git
+git clone https://github.com/uniconv/uniconv.git
 cd uniconv/uniconv
 mkdir build && cd build
 cmake ..
 cmake --build .
 ```
 
+## Build (Windows)
+
+Visual Studio 2022 with "Desktop development with C++" workload is required.
+
+```powershell
+git clone https://github.com/uniconv/uniconv.git
+cd uniconv\uniconv
+mkdir build && cd build
+cmake ..
+cmake --build . --config Release
+```
+
+The resulting binary is at `build\Release\uniconv.exe`.
+
 ## Install
 
 ```bash
+# macOS / Linux
 sudo cmake --install .
 ```
+
+On Windows, copy `build\Release\uniconv.exe` to a directory in your PATH, or add the build directory to PATH.
 
 ## Run tests
 
@@ -28,4 +44,11 @@ sudo cmake --install .
 cd build
 ctest        # All tests
 ctest -V     # Verbose output
+```
+
+On Windows, specify the configuration:
+
+```powershell
+ctest -C Release
+ctest -C Release -V
 ```

@@ -257,15 +257,16 @@ namespace uniconv::core
         // Use the http_utils subprocess pattern isn't directly available here,
         // so we use system() as a simple approach
 #ifdef _WIN32
-        // Use forward slashes to avoid MSYS2/GNU tar misinterpreting
-        // colons in Windows paths as remote host specifiers
-        auto to_forward_slash = [](std::string s) {
-            for (auto& c : s) { if (c == '\\') c = '/'; }
-            return s;
-        };
-        std::string full_cmd = "tar --force-local -xzf \""
-            + to_forward_slash(temp_file.string()) + "\" -C \""
-            + to_forward_slash(extract_dir.string()) + "\"";
+        // Use Windows built-in bsdtar directly to avoid picking up
+        // MSYS2/Git GNU tar which misinterprets C: as a remote host.
+        // cmd.exe requires the entire command to be wrapped in outer quotes
+        // when the executable path itself is quoted.
+        std::string sys_root = "C:\\Windows";
+        if (auto* sr = std::getenv("SystemRoot")) sys_root = sr;
+        std::string tar_exe = sys_root + "\\System32\\tar.exe";
+        std::string full_cmd = "\"\"" + tar_exe + "\" -xzf \""
+            + temp_file.string() + "\" -C \""
+            + extract_dir.string() + "\"\"";
 #else
         std::string full_cmd = "tar xzf " + temp_file.string() + " -C " + extract_dir.string();
 #endif

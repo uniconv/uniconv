@@ -423,7 +423,15 @@ namespace uniconv::core
     void *NativePluginLoader::load_library(const std::filesystem::path &path)
     {
 #ifdef _WIN32
-        return LoadLibraryA(path.string().c_str());
+        // Add the plugin directory to DLL search path so that bundled
+        // dependency DLLs (e.g. libvips) next to the plugin are found.
+        auto plugin_dir = path.parent_path().string();
+        auto cookie = AddDllDirectory(path.parent_path().wstring().c_str());
+        SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+        auto handle = LoadLibraryExA(path.string().c_str(), NULL,
+                                     LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR);
+        if (cookie) RemoveDllDirectory(cookie);
+        return handle;
 #else
         return dlopen(path.string().c_str(), RTLD_NOW | RTLD_LOCAL);
 #endif

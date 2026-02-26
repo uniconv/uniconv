@@ -17,23 +17,44 @@ Thanks for your interest in contributing to uniconv. This guide covers everythin
 - C++20 compiler (Clang 14+, GCC 12+, MSVC 17+)
 - Git
 
-### Building
+### Building (macOS / Linux)
 
 ```bash
-git clone https://github.com/anthropics/uniconv.git
+git clone https://github.com/uniconv/uniconv.git
 cd uniconv/uniconv
 mkdir build && cd build
 cmake .. -DUNICONV_BUILD_TESTS=ON
 cmake --build .
 ```
 
+### Building (Windows)
+
+Requires Visual Studio 2022 with "Desktop development with C++" workload.
+
+```powershell
+git clone https://github.com/uniconv/uniconv.git
+cd uniconv\uniconv
+mkdir build && cd build
+cmake .. -DUNICONV_BUILD_TESTS=ON
+cmake --build . --config Debug
+```
+
 ### Running Tests
 
 ```bash
+# macOS / Linux
 cd build
 ctest          # Run all tests
 ctest -V       # Verbose output
 ctest -R name  # Run specific test
+```
+
+```powershell
+# Windows
+cd build
+ctest -C Debug
+ctest -C Debug -V
+ctest -C Debug -R name
 ```
 
 ## Code Conventions
@@ -179,6 +200,12 @@ See [`plugins/image-convert`](https://github.com/uniconv/plugins/tree/main/image
 ### Publishing a Plugin
 
 For full details on packaging, releasing, and submitting plugins to the registry, see the [Plugin Development Guide](https://github.com/uniconv/registry/blob/main/plugins/DEVELOPMENT.md) and [Publishing Guide](https://github.com/uniconv/plugins/blob/main/PUBLISHING.md).
+
+### Windows notes for plugin development
+
+- **Native plugins:** Bundled dependency DLLs must be placed in the same directory as the plugin `.dll`. The uniconv core uses `LoadLibraryEx` with `LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR` to locate them.
+- **CLI plugins:** Work cross-platform. For Python plugins, ensure `python3` / `python` is in PATH.
+- **Release scripts:** Use `python release.py` (cross-platform) instead of `./release.sh` on Windows. Both scripts have identical behavior.
 
 ## Submitting Changes
 
