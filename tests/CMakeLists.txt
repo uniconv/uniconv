@@ -59,6 +59,7 @@ target_link_libraries(uniconv_tests PRIVATE
     CLI11::CLI11
     nlohmann_json::nlohmann_json
     Threads::Threads
+    $<TARGET_NAME_IF_EXISTS:unofficial::libmagic::libmagic>
     $<TARGET_NAME_IF_EXISTS:PkgConfig::LIBMAGIC>
     $<TARGET_NAME_IF_EXISTS:LibMagic::LibMagic>
 )
