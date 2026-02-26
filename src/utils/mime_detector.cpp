@@ -1,5 +1,10 @@
 #include "utils/mime_detector.h"
+#include <filesystem>
 #include <stdexcept>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 namespace uniconv::utils {
 
@@ -67,7 +72,23 @@ MimeDetector::MimeDetector()
     if (!cookie_)
         throw std::runtime_error("magic_open() failed");
 
-    if (magic_load(cookie_, nullptr) != 0)
+    const char *magic_path = nullptr;
+#ifdef _WIN32
+    // On Windows, look for magic.mgc next to the executable
+    static std::string magic_path_str;
+    char exe_path[MAX_PATH];
+    if (GetModuleFileNameA(NULL, exe_path, MAX_PATH))
+    {
+        auto mgc = std::filesystem::path(exe_path).parent_path() / "magic.mgc";
+        if (std::filesystem::exists(mgc))
+        {
+            magic_path_str = mgc.string();
+            magic_path = magic_path_str.c_str();
+        }
+    }
+#endif
+
+    if (magic_load(cookie_, magic_path) != 0)
     {
         std::string err = magic_error(cookie_);
         magic_close(cookie_);

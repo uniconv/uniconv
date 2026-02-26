@@ -35,15 +35,15 @@ uniconv - "random-noise --width 512 | png"
 curl -fsSL https://raw.githubusercontent.com/uniconv/uniconv/main/install.sh | bash
 ```
 
-**Windows:**
+**Windows (PowerShell):**
 
 ```powershell
-git clone https://github.com/uniconv/uniconv.git
-cd uniconv\uniconv && mkdir build && cd build
-cmake .. && cmake --build . --config Release
+irm https://raw.githubusercontent.com/uniconv/uniconv/main/install.ps1 | iex
 ```
 
-See [Building from Source](docs/building.md) for details.
+Or from cmd: `powershell -c "irm https://raw.githubusercontent.com/uniconv/uniconv/main/install.ps1 | iex"`
+
+See [Building from Source](docs/building.md) for build-from-source instructions.
 
 ## Get started
 

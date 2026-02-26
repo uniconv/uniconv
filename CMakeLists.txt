@@ -124,10 +124,17 @@ target_include_directories(uniconv PRIVATE
 
 find_package(Threads REQUIRED)
 
-# libmagic — try pkg-config first (Linux/macOS), then find_library (Windows)
-find_package(PkgConfig QUIET)
-if(PkgConfig_FOUND)
-    pkg_check_modules(LIBMAGIC IMPORTED_TARGET libmagic)
+# libmagic — try vcpkg target first, then pkg-config (Linux/macOS), then find_library
+find_package(unofficial-libmagic QUIET)
+if(unofficial-libmagic_FOUND)
+    set(LIBMAGIC_FOUND TRUE)
+endif()
+
+if(NOT LIBMAGIC_FOUND)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(LIBMAGIC IMPORTED_TARGET libmagic)
+    endif()
 endif()
 
 if(NOT LIBMAGIC_FOUND)
@@ -153,6 +160,7 @@ target_link_libraries(uniconv PRIVATE
     CLI11::CLI11
     nlohmann_json::nlohmann_json
     Threads::Threads
+    $<TARGET_NAME_IF_EXISTS:unofficial::libmagic::libmagic>
     $<TARGET_NAME_IF_EXISTS:PkgConfig::LIBMAGIC>
     $<TARGET_NAME_IF_EXISTS:LibMagic::LibMagic>
 )

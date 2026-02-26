@@ -66,7 +66,7 @@ jobs:
 
       - name: Install dependencies (Windows)
         if: matrix.platform == 'windows'
-        run: vcpkg install libmagic:x64-windows
+        run: vcpkg install libmagic:x64-windows-static
 
       - name: Build
         shell: bash
@@ -77,6 +77,8 @@ jobs:
           fi
           if [ "${{ matrix.platform }}" = "windows" ]; then
             CMAKE_EXTRA="$CMAKE_EXTRA -DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+            CMAKE_EXTRA="$CMAKE_EXTRA -DVCPKG_TARGET_TRIPLET=x64-windows-static"
+            CMAKE_EXTRA="$CMAKE_EXTRA -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded"
           fi
           mkdir build && cd build
           cmake -DCMAKE_BUILD_TYPE=Release $CMAKE_EXTRA ..
@@ -92,7 +94,15 @@ jobs:
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
-          Compress-Archive -Path build/Release/uniconv.exe -DestinationPath "uniconv-${{ github.ref_name }}-windows-x86_64.zip"
+          $staging = "uniconv-staging"
+          New-Item -ItemType Directory -Path $staging -Force
+          Copy-Item build/Release/uniconv.exe $staging/
+          # Bundle magic.mgc database for file type detection
+          $magicDb = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-static/share/libmagic/misc/magic.mgc"
+          if (Test-Path $magicDb) {
+            Copy-Item $magicDb $staging/
+          }
+          Compress-Archive -Path "$staging/*" -DestinationPath "uniconv-${{ github.ref_name }}-windows-x86_64.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
