@@ -520,11 +520,21 @@ namespace uniconv::core
         }
 
 #ifdef _WIN32
-        // Windows lacks shebang support; map script extensions to interpreters
+        // Windows lacks shebang support; map script extensions to interpreters.
+        // Prefer the venv interpreter to avoid version mismatches with C extensions.
         auto ext = to_lower(executable.extension().string());
         std::string interpreter;
         if (ext == ".py")
-            interpreter = "python";
+        {
+            if (dep_env_dir_)
+            {
+                auto venv_python = *dep_env_dir_ / "python" / "Scripts" / "python.exe";
+                if (std::filesystem::exists(venv_python))
+                    interpreter = venv_python.string();
+            }
+            if (interpreter.empty())
+                interpreter = "python";
+        }
         else if (ext == ".js")
             interpreter = "node";
         else if (ext == ".rb")
